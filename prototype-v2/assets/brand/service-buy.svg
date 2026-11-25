@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="代买">
+  <rect width="96" height="96" rx="24" fill="#F5B301"/>
+  <path d="M27 38h42l-5 36H32l-5-36z" fill="#0D0E11"/>
+  <path d="M38 40v-7a10 10 0 0 1 20 0v7" fill="none" stroke="#0D0E11" stroke-width="7" stroke-linecap="round"/>
+  <path d="M43 55h10M48 50v10" stroke="#F5B301" stroke-width="5" stroke-linecap="round"/>
+</svg>

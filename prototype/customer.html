@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>客户端（Track B）· 同城跑腿原型</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ROLES = [
+    { k: 'customer', h: 'customer.html', t: '客户端' },
+    { k: 'merchant', h: 'merchant.html', t: '商家端' },
+    { k: 'rider', h: 'rider.html', t: '骑手端' },
+    { k: 'dispatch', h: 'dispatch.html', t: '调度台' }
+  ];
+  var cid = 'C4';
+  var tab = 'order';
+
+  var screen = UI.mobilePage({
+    active: 'customer', roleName: '客户（需个体工商户）', roles: ROLES,
+    title: '同城跑腿', sub: '微信小程序版',
+    cap: '这一页要回答的问题：为了"客户自助下单 + 在线收款"，值不值得去办个体工商户？',
+    tabbar: '<div class="tabbar"><div class="on" data-t="order">下单</div><div data-t="list">我的订单</div><div data-t="me">我的</div></div>'
+  });
+
+  function render() {
+    var s = Store.get();
+    var c = UI.customer(s, cid);
+    var bal = Store.customerBalance(s, cid);
+    var html = '';
+
+    if (tab === 'order') {
+      html += '<div class="mcard" style="background:#fff7ed;border-color:#fed7aa">' +
+        '<b>这一版必须用小程序</b><div class="small muted" style="margin-top:6px">' +
+        '微信小程序「生活服务-跑腿」类目<b>不对个人主体开放</b>，个人主体只能选丽人/家政/工具类；H5 网页又拿不到微信身份、发不了订阅消息。' +
+        '所以客户自助下单这一页，是个体工商户最直接的回报。</div></div>';
+
+      html += '<div class="mcard"><div class="row"><div class="grow"><label class="fl">送到哪</label>' +
+        '<select id="cAddr">' + c.addresses.map(function (a, i) {
+          return '<option value="' + a.id + '"' + (i === 0 ? ' selected' : '') + '>' + UI.esc(a.poi + ' ' + a.detail) + '</option>';
+        }).join('') + '</select></div></div>' +
+        '<label class="fl" style="margin-top:10px">去哪家买</label>' +
+        '<div class="chips" id="cMer">' + s.merchants.map(function (m, i) {
+          return '<button class="chip' + (i === 0 ? ' on' : '') + '" data-m="' + m.id + '">' + UI.esc(m.name) + '</button>';
+        }).join('') + '</div>' +
+        '<label class="fl" style="margin-top:10px">要买什么（照原话写就行）</label>' +
+        '<textarea id="cText" rows="3" placeholder="例：2 斤草莓 + 1 瓶牛奶，牛奶要 950ml 的"></textarea>' +
+        '<div class="grid2" style="margin-top:8px">' +
+        '<div><label class="fl">货款预估（元）</label><input id="cEst" value="60" inputmode="decimal"></div>' +
+        '<div><label class="fl">什么时候要</label><select id="cWhen"><option>尽快（约 40 分钟）</option><option>今天 18:00 前</option><option>明早</option></select></div>' +
+        '</div>' +
+        '<div class="row small muted" style="margin-top:8px;justify-content:space-between">' +
+        '<span>跑腿费（3 公里内）</span><b class="num" id="cFee">¥8.00</b></div>' +
+        '<div class="row small" style="justify-content:space-between;border-top:1px dashed var(--line);padding-top:8px;margin-top:4px">' +
+        '<span>本单预估合计</span><b class="num" style="font-size:17px" id="cAll">¥68.00</b></div>' +
+        (bal > c.credit_limit_fen ? '<div class="alert err small" style="margin-top:10px">你当前欠款 ' + UI.money(bal) +
+          '，已超过 ' + UI.money(c.credit_limit_fen) + ' 的额度，请先结清再下单。</div>' : '') +
+        '<button class="mbtn" id="cSubmit" ' + (bal > c.credit_limit_fen ? 'disabled' : '') + '>提交订单</button>' +
+        '<div class="small muted center" style="margin-top:6px">货款以商家小票实付为准，多退少补，可在订单里看到小票照片</div></div>';
+    }
+
+    if (tab === 'list') {
+      var mine = s.orders.filter(function (o) { return o.customer_id === cid; }).sort(function (a, b) { return b.created_at - a.created_at; });
+      if (!mine.length) html += '<div class="mcard center muted">还没有订单</div>';
+      mine.slice(0, 12).forEach(function (o) {
+        var m = UI.merchant(s, o.merchant_id);
+        var recv = Store.orderReceivable(s, o);
+        var paid = Store.orderPaid(s, o.id);
+        html += '<div class="mcard"><div class="row"><b>' + UI.esc(o.items[0].text.slice(0, 20)) + '</b>' +
+          '<span class="right">' + UI.badge(o.status) + '</span></div>' +
+          '<div class="small muted" style="margin-top:4px">' + o.order_no + '｜' + UI.esc(m.name) + '｜' +
+          new Date(o.created_at).toLocaleString('zh-CN', { hour12: false }) + '</div>' +
+          '<div class="row" style="margin-top:6px;justify-content:space-between">' +
+          '<span class="small">应收 <b class="num">' + UI.money(recv) + '</b>' +
+          (recv - paid > 0 ? ' · <span style="color:var(--danger)">未付 ' + UI.money(recv - paid) + '</span>' : ' · <span style="color:var(--ok)">已付清</span>') + '</span>' +
+          (o.attachments.length ? '<span class="small">' + o.attachments.map(function (a) { return a.type === 'receipt' ? '🧾 小票' : '📷 送达照'; }).join(' ') + '</span>' : '') +
+          '</div></div>';
+      });
+    }
+
+    if (tab === 'me') {
+      var bills = (s.bills || []).filter(function (b) { return b.customer_id === cid; });
+      html += '<div class="mcard center"><div class="muted small">当前欠款</div>' +
+        '<div class="big-amt" style="color:' + (bal > 0 ? 'var(--danger)' : 'var(--ok)') + '">' + UI.money(bal) + '</div>' +
+        '<div class="small muted">额度 ' + UI.money(c.credit_limit_fen) + '｜每月 ' + c.settle_day + ' 号结算</div>' +
+        (bal > 0 ? '<button class="mbtn" id="mePay">立即还款</button>' : '') + '</div>';
+      var q = s.quota.filter(function (x) { return x.owner === '本客户'; })[0];
+      html += '<div class="mcard"><b>订单通知</b><div class="small muted" style="margin-top:6px">' +
+        '小程序只能给"有订阅额度"的人发消息：一次授权 = 一条。' +
+        '所以每次你点确认/付款，我们会顺手问一次是否继续通知（现在额度 ' + ((q && q.quota_left) || 0) + ' 条）。' +
+        '不想被问就一直收不到推送——这时只能靠商家页那种常驻轮询或短信。</div>' +
+        '<button class="mbtn alt" id="meSub">＋ 授权 1 条通知额度</button></div>';
+      html += '<div class="mcard"><b>历史对账单</b>' + (bills.length ? bills.map(function (b) {
+        return '<div class="row small" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>' + b.period_month + '</span>' +
+          '<span class="right num">' + UI.money(b.closing_fen) + '</span>' +
+          '<span class="badge ' + (b.status === 'confirmed' ? 'green' : 'amber') + '">' + (b.status === 'confirmed' ? '已确认' : '待确认') + '</span></div>';
+      }).join('') : '<div class="small muted" style="margin-top:6px">还没有生成过（老板点「生成对账单」后会出现在这里）</div>') + '</div>';
+      html += '<div class="mcard"><label class="fl">切换演示客户</label><select id="meC">' +
+        s.customers.map(function (x) { return '<option value="' + x.id + '"' + (x.id === cid ? ' selected' : '') + '>' + UI.esc(x.name) + '</option>'; }).join('') +
+        '</select></div>';
+    }
+
+    screen.innerHTML = html;
+    bind(s);
+  }
+
+  function bind(s) {
+    var bar = document.querySelector('.tabbar');
+    if (bar && !bar.dataset.bound) {
+      bar.dataset.bound = '1';
+      Array.prototype.forEach.call(bar.querySelectorAll('[data-t]'), function (el) {
+        el.addEventListener('click', function () {
+          tab = el.dataset.t;
+          Array.prototype.forEach.call(bar.querySelectorAll('div'), function (d) { d.classList.remove('on'); });
+          el.classList.add('on');
+          render();
+        });
+      });
+    }
+    Array.prototype.forEach.call(screen.querySelectorAll('#cMer .chip'), function (ch) {
+      ch.addEventListener('click', function () {
+        Array.prototype.forEach.call(screen.querySelectorAll('#cMer .chip'), function (x) { x.classList.remove('on'); });
+        ch.classList.add('on');
+      });
+    });
+    var est = screen.querySelector('#cEst');
+    if (est) est.addEventListener('input', total);
+    var mc = screen.querySelector('#meC');
+    if (mc) mc.addEventListener('change', function () { cid = mc.value; render(); });
+    var sub = screen.querySelector('#meSub');
+    if (sub) sub.addEventListener('click', function () {
+      var st = Store.get();
+      var q = st.quota.filter(function (x) { return x.owner === '本客户'; })[0];
+      if (!q) { q = { owner: '本客户', tmpl: '订单状态', quota_left: 0 }; st.quota.push(q); }
+      q.quota_left += 1;
+      Store.commit(st);
+      UI.toast('额度 +1（真实实现是 wx.requestSubscribeMessage）', 'ok');
+      render();
+    });
+    var pay = screen.querySelector('#mePay');
+    if (pay) pay.addEventListener('click', function () {
+      var c = UI.customer(Store.get(), cid);
+      UI.modal({
+        title: '微信支付（演示）',
+        body: '<div class="note" style="margin-bottom:12px">需个体工商户 + 微信认证 + 商户号 + ICP 备案，费率 0.6%。<br>' +
+          '<b>自动扣款（微信支付分先享后付/委托代扣）是邀约制，小平台拿不到</b>，所以线上还款只能是客户自己点这一下。</div>' +
+          '<div class="center"><div class="muted small">付款金额</div><div class="big-amt">' + UI.money(Store.customerBalance(Store.get(), cid)) + '</div>' +
+          '<div class="small muted">' + UI.esc(c.name) + ' · 同城跑腿</div></div>',
+        okText: '确认支付（模拟）',
+        onOk: function () {
+          var st = Store.get();
+          Store.receivePayment(cid, UI.yuan(Math.max(0, Store.customerBalance(st, cid))), '小程序自助还款');
+          UI.toast('支付成功，已自动核销', 'ok');
+          render();
+        }
+      });
+    });
+    var go = screen.querySelector('#cSubmit');
+    if (go) go.addEventListener('click', function () {
+      var on = screen.querySelector('#cMer .chip.on');
+      var c = UI.customer(Store.get(), cid);
+      var bal = Store.customerBalance(Store.get(), cid);
+      if (bal > c.credit_limit_fen) { UI.toast('欠款超额，先结清', 'err'); return; }
+      var r = Store.createOrder({
+        source: 'online', created_by: '客户自助',
+        customer_id: cid, address_id: screen.querySelector('#cAddr').value,
+        merchant_id: on.dataset.m,
+        text: screen.querySelector('#cText').value || '（客户没写内容）',
+        est_yuan: screen.querySelector('#cEst').value, fee_yuan: '8',
+        note: screen.querySelector('#cWhen').value
+      });
+      UI.toast('已提交 ' + r.order.order_no + '，等调度员派单', 'ok');
+      tab = 'list';
+      var bar2 = document.querySelector('.tabbar');
+      Array.prototype.forEach.call(bar2.querySelectorAll('div'), function (d) { d.classList.toggle('on', d.dataset.t === 'list'); });
+      render();
+    });
+  }
+  function total() {
+    var est = Number(screen.querySelector('#cEst').value || 0);
+    screen.querySelector('#cAll').textContent = '¥' + (est + 8).toFixed(2);
+  }
+
+  UI.onData(function () { render(); });
+  render();
+})();
+</script>
+</body>
+</html>

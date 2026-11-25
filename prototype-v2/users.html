@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>用户与权限 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .users-tabs { margin: 0 0 12px; }
+  .users-tabs button { font-size: 12.5px; padding: 0 4px; }
+  .toolbar { padding: 10px; margin-bottom: 12px; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+  .filters select { padding: 0 8px; font-size: 13px; }
+  .list-head { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0 2px 8px; }
+  .list-head .btn { margin-left: auto; }
+
+  .ucard, .pcard {
+    padding: 13px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .ucard + .ucard, .pcard + .pcard, .ucard + .pcard, .pcard + .ucard { margin-top: 10px; }
+  .ucard-hd { display: flex; align-items: flex-start; gap: 10px; }
+  .uname { font-size: 15px; font-weight: 750; line-height: 1.35; overflow-wrap: anywhere; }
+  .uphone { margin-top: 1px; font-size: 12px; color: var(--muted); }
+  .uroles { margin-top: 8px; }
+  .ucard .badge.long { max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; text-align: left; }
+  .umerchant { margin-top: 6px; font-size: 11.5px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+  .umeta { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+  .uactions { display: flex; gap: 8px; margin-top: 11px; }
+  .uactions .btn { flex: 1; min-width: 0; padding: 0 8px; font-size: 13px; }
+  .pmeta { margin-top: 4px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+
+  .m-box { margin: 4px 0 14px; padding: 12px; background: #FDFBF6; border: 1px solid var(--line); border-radius: 14px; }
+  .m-box-title { margin-bottom: 10px; font-size: 13px; font-weight: 750; }
+  .m-box .field:last-child { margin-bottom: 0; }
+  .ro { background: #F1F2F4; color: var(--muted); }
+
+  .pgroup { margin-bottom: 10px; overflow: hidden; background: var(--white); border: 1px solid var(--line); border-radius: var(--r); }
+  .pgroup summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 13px;
+    font-size: 13.5px;
+    font-weight: 750;
+    cursor: pointer;
+    list-style: none;
+  }
+  .pgroup summary::-webkit-details-marker { display: none; }
+  .pgroup summary::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-right: 1px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+  }
+  .pgroup[open] summary::before { transform: rotate(225deg); }
+  .pcount { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: #F1EDE3; font-size: 11.5px; font-weight: 650; color: var(--muted); }
+  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 13px; border-top: 1px solid var(--line); cursor: pointer; }
+  .prow .plabel { flex: 1; min-width: 0; }
+  .prow .plabel b { display: block; font-size: 13px; font-weight: 650; line-height: 1.4; }
+  .prow .plabel code { font-size: 10.5px; }
+  .prow .switch { flex: 0 0 auto; }
+  .perms-view.readonly .prow { cursor: default; }
+  .perms-view { padding-bottom: 86px; }
+
+  .savebar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    z-index: 38;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: calc(100% - 28px);
+    max-width: 402px;
+    padding: 10px 12px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(13, 14, 17, .16);
+  }
+  .savebar .sb-text { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
+  .savebar .btn { flex: 0 0 auto; min-width: 132px; }
+
+  @media (max-width: 350px) {
+    .uactions .btn { padding: 0 4px; font-size: 12px; }
+    .savebar .btn { min-width: 112px; }
+  }
+</style>
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var body = UI.adminPage({
+    active: 'users',
+    title: '用户与权限',
+    sub: '账号 · 角色 · 商家 · 权限矩阵',
+    perm: 'user.view'
+  });
+  if (!body) return;
+
+  var esc = UI.esc;
+  var canCreate = Store.can('user.create');
+  var canEdit = Store.can('user.edit');
+  var canReset = Store.can('user.reset');
+  var canPerm = Store.can('permission.manage');
+
+  var ROLE_NAME = { super_admin: '超级管理员', admin: '管理员', rider: '骑手', merchant: '商家', customer: '客户' };
+  var ROLE_COLOR = { super_admin: 'violet', admin: 'blue', rider: 'cyan', merchant: 'amber', customer: 'green' };
+
+  var state = { tab: 'users', q: '', role: 'all', status: 'all' };
+
+  /* ---------- 通用小工具 ---------- */
+  function roleOf(u, role) {
+    return ((u && u.roles) || []).filter(function (r) { return r.role === role; })[0] || null;
+  }
+  function merchantIdOf(u) {
+    var r = roleOf(u, 'merchant');
+    return r && r.merchantId ? r.merchantId : null;
+  }
+  function merchantOf(u) {
+    var id = merchantIdOf(u);
+    return id ? Store.merchant(id) : null;
+  }
+  function categoryNames(ids) {
+    return (ids || []).map(function (id) {
+      var c = Store.category(id);
+      return c ? c.name : '';
+    }).filter(Boolean);
+  }
+  function optionValue(o) {
+    if (o && typeof o === 'object') return o.value != null ? o.value : (o.label != null ? o.label : '');
+    return o == null ? '' : o;
+  }
+  function optionLabel(o) {
+    if (o && typeof o === 'object') return o.label != null ? o.label : (o.value != null ? o.value : '');
+    return o == null ? '' : o;
+  }
+  function sheetValue(sheet, sel) {
+    var el = sheet.querySelector(sel);
+    return el ? String(el.value == null ? '' : el.value).trim() : '';
+  }
+
+  /* ---------- 用户卡片 ---------- */
+  function roleBadges(u) {
+    return ((u && u.roles) || []).map(function (r) {
+      if (r.role === 'merchant') {
+        var m = r.merchantId ? Store.merchant(r.merchantId) : null;
+        return '<span class="badge amber long">商家' + (m ? ' · ' + esc(m.name) : ' · 未绑定门店') + '</span>';
+      }
+      return '<span class="badge ' + (ROLE_COLOR[r.role] || 'slate') + '">' + esc(ROLE_NAME[r.role] || r.role) + '</span>';
+    }).join(' ');
+  }
+
+  function userCard(u) {
+    var isRoot = u.id === 1;
+    var m = merchantOf(u);
+    var cats = m ? categoryNames(m.categoryIds).join(' / ') : '';
+    var acts = [];
+    if (canEdit) acts.push('<button type="button" class="btn" data-edit="' + u.id + '">编辑</button>');
+    if (canReset) acts.push('<button type="button" class="btn" data-pwd="' + u.id + '">重置密码</button>');
+    if (canEdit && !isRoot) {
+      acts.push('<button type="button" class="btn ' + (u.status === 'active' ? 'danger' : '') + '" data-toggle="' + u.id + '">' +
+        (u.status === 'active' ? '停用' : '启用') + '</button>');
+    }
+    return '<article class="ucard">' +
+      '<div class="ucard-hd">' +
+        '<div class="grow">' +
+          '<div class="uname">' + esc(u.name) + (isRoot ? ' <span class="badge ghost">初始超管</span>' : '') + '</div>' +
+          '<div class="uphone num">' + esc(u.phone) + '</div>' +
+        '</div>' +
+        '<span class="badge ' + (u.status === 'active' ? 'green' : 'red') + '">' + (u.status === 'active' ? '启用' : '停用') + '</span>' +
+      '</div>' +
+      '<div class="chips uroles">' + roleBadges(u) + '</div>' +
+      (m ? '<div class="umerchant">类目：' + esc(cats || '未设置') + '</div>' : '') +
+      '<div class="umeta">最后登录：' + (u.lastLogin ? UI.fmtDate(u.lastLogin) : '从没登录') + '</div>' +
+      (acts.length ? '<div class="uactions">' + acts.join('') + '</div>' : '') +
+      '</article>';
+  }
+
+  function filteredUsers() {
+    var q = state.q.trim().toLowerCase();
+    return Store.users().filter(function (u) {
+      if (state.role !== 'all' && !Store.hasRole(u, state.role)) return false;
+      if (state.status !== 'all' && u.status !== state.status) return false;
+      if (!q) return true;
+      var m = merchantOf(u);
+      var hay = [u.name, u.phone];
+      if (m) hay.push(m.name, categoryNames(m.categoryIds).join(' '));
+      return hay.join(' ').toLowerCase().indexOf(q) >= 0;
+    }).sort(function (a, b) { return a.id - b.id; });
+  }
+
+  function renderUserList() {
+    var listBox = document.getElementById('userList');
+    if (!listBox) return;
+    var list = filteredUsers();
+    var count = document.getElementById('uCount');
+    if (count) count.textContent = list.length + ' 个账号' + (list.length === Store.users().length ? '' : ' · 已筛选');
+    listBox.innerHTML = list.length
+      ? list.map(userCard).join('')
+      : '<div class="card">' + UI.empty('assets/brand/empty-orders.svg', '没有匹配的账号', '换个关键词或筛选条件试试') + '</div>';
+
+    listBox.querySelectorAll('[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var u = Store.user(Number(b.getAttribute('data-edit')));
+        if (u) openUserForm(u);
+      });
+    });
+    listBox.querySelectorAll('[data-pwd]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var u = Store.user(Number(b.getAttribute('data-pwd')));
+        if (u) resetPassword(u);
+      });
+    });
+    listBox.querySelectorAll('[data-toggle]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var u = Store.user(Number(b.getAttribute('data-toggle')));
+        if (u) toggleUser(u);
+      });
+    });
+  }
+
+  /* ---------- 用户表单 ---------- */
+  function extraFieldHtml(f, extra) {
+    var key = f.fieldKey;
+    var v = extra[key];
+    var label = '<label class="fl' + (f.required ? ' req' : '') + '">' + esc(f.label || key) + '</label>';
+    var type = f.type || 'text';
+
+    if (type === 'textarea') {
+      return '<div class="field">' + label + '<textarea data-extra="' + esc(key) + '">' + esc(v == null ? '' : v) + '</textarea></div>';
+    }
+    if (type === 'number') {
+      return '<div class="field">' + label + '<input type="number" inputmode="decimal" data-extra="' + esc(key) + '" value="' + esc(v == null ? '' : v) + '"></div>';
+    }
+    if (type === 'phone') {
+      return '<div class="field">' + label + '<input type="tel" inputmode="tel" data-extra="' + esc(key) + '" value="' + esc(v == null ? '' : v) + '"></div>';
+    }
+    if (type === 'date') {
+      return '<div class="field">' + label + '<input type="date" data-extra="' + esc(key) + '" value="' + esc(v == null ? '' : v) + '"></div>';
+    }
+    if (type === 'select') {
+      var opts = (f.options || []).map(function (o) {
+        var val = optionValue(o);
+        var on = String(v == null ? '' : v) === String(val);
+        return '<option value="' + esc(val) + '"' + (on ? ' selected' : '') + '>' + esc(optionLabel(o)) + '</option>';
+      }).join('');
+      return '<div class="field">' + label + '<select data-extra="' + esc(key) + '"><option value="">请选择…</option>' + opts + '</select></div>';
+    }
+    if (type === 'multiselect') {
+      var arr = Array.isArray(v) ? v : (v == null || v === '' ? [] : [v]);
+      var chips = (f.options || []).map(function (o) {
+        var val = optionValue(o);
+        var on = arr.some(function (x) { return String(x) === String(val); });
+        return '<label class="chip' + (on ? ' on' : '') + '"><input type="checkbox" data-extra-multi="' + esc(key) + '" value="' + esc(val) + '"' + (on ? ' checked' : '') + '><span>' + esc(optionLabel(o)) + '</span></label>';
+      }).join('');
+      return '<div class="field">' + label + '<div class="chips">' + (chips || '<span class="muted small">没有可选项</span>') + '</div></div>';
+    }
+    if (type === 'switch') {
+      return '<div class="field">' + label + '<label class="switch"><input type="checkbox" data-extra="' + esc(key) + '"' + (v ? ' checked' : '') + '><span>开启</span></label></div>';
+    }
+    return '<div class="field">' + label + '<input data-extra="' + esc(key) + '" value="' + esc(v == null ? '' : v) + '"></div>';
+  }
+
+  function userFormHtml(u) {
+    var isNew = !u;
+    var roles = (u && u.roles) || [{ role: 'customer' }];
+    function has(role) { return roles.some(function (x) { return x.role === role; }); }
+    var m = u ? merchantOf(u) : null;
+    var extra = (m && m.extra) || {};
+
+    var roleKeys = [];
+    if (canPerm || (u && u.id === 1)) roleKeys.push('super_admin');
+    roleKeys = roleKeys.concat(['admin', 'rider', 'merchant', 'customer']);
+    var roleChips = roleKeys.map(function (role) {
+      var locked = !!(u && u.id === 1 && role === 'super_admin');
+      return '<label class="chip' + (has(role) ? ' on' : '') + (locked ? ' dis' : '') + '" data-role="' + role + '">' +
+        '<input type="checkbox"' + (has(role) ? ' checked' : '') + (locked ? ' disabled' : '') + '>' +
+        '<span>' + esc(ROLE_NAME[role]) + '</span></label>';
+    }).join('');
+
+    var catChips = Store.categories().map(function (c) {
+      var on = !!(m && (m.categoryIds || []).indexOf(c.id) >= 0);
+      return '<label class="chip' + (on ? ' on' : '') + '" data-cat>' +
+        '<input type="checkbox" value="' + c.id + '"' + (on ? ' checked' : '') + '>' +
+        '<span>' + esc(c.name) + '</span></label>';
+    }).join('');
+
+    var custom = Store.merchantFields().filter(function (f) { return f.enabled !== false; }).map(function (f) {
+      return extraFieldHtml(f, extra);
+    }).join('');
+
+    return '<div class="section-title">账号信息</div>' +
+      '<div class="field"><label class="fl req">姓名</label>' +
+        '<input id="fName" value="' + esc(u ? u.name : '') + '" placeholder="真实姓名或称呼"></div>' +
+      '<div class="field"><label class="fl req">手机号（登录名）</label>' +
+        '<input id="fPhone" type="tel" inputmode="tel" value="' + esc(u ? u.phone : '') + '"' + (isNew ? '' : ' readonly class="ro"') + '>' +
+        (isNew ? '<div class="hint">11 位手机号，用来登录</div>'
+               : '<div class="hint">手机号是登录名，不能改；改密码请用「重置密码」</div>') +
+      '</div>' +
+      (isNew
+        ? '<div class="field"><label class="fl">初始密码</label><input id="fPwd" value="123456" autocomplete="new-password">' +
+          '<div class="hint">默认 123456，建议本人登录后修改</div></div>'
+        : '') +
+      '<div class="field"><label class="fl">状态</label>' +
+        '<select id="fStatus"' + (u && u.id === 1 ? ' disabled' : '') + '>' +
+          '<option value="active"' + (!u || u.status === 'active' ? ' selected' : '') + '>启用</option>' +
+          '<option value="disabled"' + (u && u.status !== 'active' ? ' selected' : '') + '>停用</option>' +
+        '</select>' +
+        (u && u.id === 1 ? '<div class="hint">初始超级管理员不能停用</div>' : '') +
+      '</div>' +
+      '<div class="field"><label class="fl req">角色（可多选）</label>' +
+        '<div class="chips">' + roleChips + '</div>' +
+        '<div class="hint">同一个人可以同时是商家、骑手、客户。' + (canPerm ? '超级管理员始终拥有全部权限。' : '') + '</div>' +
+      '</div>' +
+      '<div id="merchantBox" class="m-box"' + (has('merchant') ? '' : ' style="display:none"') + '>' +
+        '<div class="m-box-title">门店信息</div>' +
+        '<div class="field"><label class="fl">店名</label><input id="mName" value="' + esc(m ? m.name : '') + '" placeholder="不填就用姓名"></div>' +
+        '<div class="field"><label class="fl req">类目（至少选一个）</label><div class="chips">' + catChips + '</div></div>' +
+        '<div class="field"><label class="fl">门店电话</label><input id="mPhone" type="tel" inputmode="tel" value="' + esc(m ? m.phone : '') + '"></div>' +
+        '<div class="field"><label class="fl">门店地址</label><input id="mAddr" value="' + esc(m ? m.address : '') + '"></div>' +
+        '<div class="field"><label class="fl">备货超时（分钟）</label><input id="mPrep" type="number" inputmode="numeric" min="1" value="' + (m && m.prepTimeoutMin ? m.prepTimeoutMin : 10) + '"></div>' +
+        (custom ? '<div class="section-title">自定义字段</div>' + custom : '') +
+      '</div>';
+  }
+
+  function pickRoles(sheet, u) {
+    var out = [];
+    sheet.querySelectorAll('[data-role]').forEach(function (chip) {
+      var input = chip.querySelector('input');
+      if (!input || !input.checked) return;
+      var role = chip.getAttribute('data-role');
+      if (role === 'merchant') {
+        var mid = u ? merchantIdOf(u) : null;
+        out.push(mid ? { role: 'merchant', merchantId: mid } : { role: 'merchant' });
+      } else {
+        out.push({ role: role });
+      }
+    });
+    if (u && u.id === 1 && !out.some(function (x) { return x.role === 'super_admin'; })) {
+      out.push({ role: 'super_admin' });
+    }
+    return out;
+  }
+
+  function pickCategoryIds(sheet) {
+    var ids = [];
+    sheet.querySelectorAll('[data-cat] input:checked').forEach(function (i) {
+      ids.push(Number(i.value));
+    });
+    return ids;
+  }
+
+  function collectExtra(sheet, prev) {
+    var extra = {};
+    var base = prev || {};
+    Object.keys(base).forEach(function (k) { extra[k] = base[k]; });
+    Store.merchantFields().forEach(function (f) {
+      if (f.type === 'multiselect') {
+        var vals = [];
+        sheet.querySelectorAll('input[data-extra-multi="' + f.fieldKey + '"]:checked').forEach(function (i) {
+          vals.push(i.value);
+        });
+        extra[f.fieldKey] = vals;
+        return;
+      }
+      var el = sheet.querySelector('[data-extra="' + f.fieldKey + '"]');
+      if (!el) return;
+      if (f.type === 'switch') extra[f.fieldKey] = !!el.checked;
+      else extra[f.fieldKey] = String(el.value || '').trim();
+    });
+    return extra;
+  }
+
+  function merchantPayload(sheet, fallbackName, prevExtra) {
+    var ids = pickCategoryIds(sheet);
+    if (!ids.length) throw new Error('商家至少要选一个类目');
+    var name = sheetValue(sheet, '#mName') || fallbackName;
+    var prep = Number(sheetValue(sheet, '#mPrep'));
+    return {
+      name: name,
+      categoryIds: ids,
+      phone: sheetValue(sheet, '#mPhone'),
+      address: sheetValue(sheet, '#mAddr'),
+      prepTimeoutMin: prep > 0 ? prep : 10,
+      extra: collectExtra(sheet, prevExtra)
+    };
+  }
+
+  function saveUser(sheet, u) {
+    var isNew = !u;
+    var name = sheetValue(sheet, '#fName');
+    if (!name) throw new Error('请填姓名');
+    var phone = isNew ? sheetValue(sheet, '#fPhone') : u.phone;
+    if (!/^1\d{10}$/.test(phone)) throw new Error('手机号要填 11 位');
+
+    var statusEl = sheet.querySelector('#fStatus');
+    var status = statusEl ? statusEl.value : 'active';
+    var roles = pickRoles(sheet, u);
+    if (!roles.length) throw new Error('至少选一个角色');
+
+    var isMerchant = roles.some(function (r) { return r.role === 'merchant'; });
+    var m = u ? merchantOf(u) : null;
+    var patch = { name: name, roles: roles, status: status };
+    if (isMerchant) patch.merchant = merchantPayload(sheet, name, (m && m.extra) || {});
+
+    if (isNew) {
+      patch.phone = phone;
+      patch.password = sheetValue(sheet, '#fPwd') || '123456';
+      var created = Store.addUser(patch);
+      if (status !== 'active') Store.updateUser(created.id, { status: status });
+      UI.toast('用户已创建', 'ok');
+    } else {
+      Store.updateUser(u.id, patch);
+      UI.toast('已保存', 'ok');
+    }
+    UI.closeSheet();
+    render();
+  }
+
+  function openUserForm(u) {
+    var isNew = !u;
+    var sheet = UI.sheet({
+      title: isNew ? '新建用户' : '编辑用户 · ' + esc(u.name),
+      body: userFormHtml(u),
+      foot: '<button type="button" class="btn" data-x="cancel">取消</button>' +
+            '<button type="button" class="btn pri" data-x="save">' + (isNew ? '创建用户' : '保存') + '</button>'
+    });
+    if (!sheet) return;
+
+    sheet.querySelectorAll('.chip input[type="checkbox"]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var chip = cb.closest('.chip');
+        if (chip) chip.classList.toggle('on', cb.checked);
+      });
+    });
+
+    var merchantBox = sheet.querySelector('#merchantBox');
+    function syncMerchant() {
+      var roleInput = sheet.querySelector('[data-role="merchant"] input');
+      var on = !!(roleInput && roleInput.checked);
+      if (merchantBox) merchantBox.style.display = on ? '' : 'none';
+      if (on) {
+        var nameInput = sheet.querySelector('#fName');
+        var storeInput = sheet.querySelector('#mName');
+        if (nameInput && storeInput && !storeInput.value.trim()) storeInput.value = nameInput.value.trim();
+      }
+    }
+    sheet.querySelectorAll('[data-role] input').forEach(function (cb) {
+      cb.addEventListener('change', syncMerchant);
+    });
+    syncMerchant();
+
+    sheet.querySelector('[data-x="cancel"]').addEventListener('click', UI.closeSheet);
+    sheet.querySelector('[data-x="save"]').addEventListener('click', function () {
+      try { saveUser(sheet, u); } catch (e) { UI.err(e); }
+    });
+  }
+
+  /* ---------- 重置密码 / 停用启用 ---------- */
+  function resetPassword(u) {
+    UI.modal({
+      title: '重置密码 · ' + esc(u.name),
+      okText: '确认重置',
+      body: '<div class="field"><label class="fl req">新密码</label>' +
+        '<input id="rpPwd" value="123456" autocomplete="new-password">' +
+        '<div class="hint">至少 6 位；重置后本人下次登录需要改密码。</div></div>',
+      onOk: function (box) {
+        var pwd = box.querySelector('#rpPwd').value;
+        if (!pwd || pwd.length < 6) throw new Error('密码至少 6 位');
+        Store.resetPassword(u.id, pwd);
+        UI.toast('密码已重置', 'ok');
+      }
+    });
+  }
+
+  function toggleUser(u) {
+    var off = u.status === 'active';
+    UI.modal({
+      title: off ? '停用账号' : '启用账号',
+      okText: off ? '确认停用' : '确认启用',
+      body: '<p style="margin:0">' + (off
+        ? '停用后 <b>' + esc(u.name) + '</b>（' + esc(u.phone) + '）不能登录，历史订单和账单都会保留。确定停用吗？'
+        : '启用后 <b>' + esc(u.name) + '</b>（' + esc(u.phone) + '）可以重新登录。确定启用吗？') + '</p>',
+      onOk: function () {
+        if (off) Store.disableUser(u.id);
+        else Store.enableUser(u.id);
+        UI.toast(off ? '账号已停用' : '账号已启用', 'ok');
+        render();
+      }
+    });
+  }
+
+  /* ---------- 用户区块 ---------- */
+  function roleOptions() {
+    var opts = [['all', '全部角色'], ['super_admin', '超管'], ['admin', '管理员'], ['rider', '骑手'], ['merchant', '商家'], ['customer', '客户']];
+    return opts.map(function (o) {
+      return '<option value="' + o[0] + '"' + (state.role === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+  }
+  function statusOptions() {
+    var opts = [['all', '全部状态'], ['active', '启用'], ['disabled', '停用']];
+    return opts.map(function (o) {
+      return '<option value="' + o[0] + '"' + (state.status === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
+  }
+
+  function usersView() {
+    return '<div class="card toolbar">' +
+        '<input type="search" id="uSearch" placeholder="搜索姓名 / 手机 / 门店" value="' + esc(state.q) + '">' +
+        '<div class="filters">' +
+          '<select id="roleFilter">' + roleOptions() + '</select>' +
+          '<select id="statusFilter">' + statusOptions() + '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="list-head">' +
+        '<span class="small muted" id="uCount"></span>' +
+        (canCreate ? '<button type="button" class="btn pri" id="addUser">＋ 新建用户</button>' : '') +
+      '</div>' +
+      '<div id="userList"></div>';
+  }
+
+  function bindUsers() {
+    var search = document.getElementById('uSearch');
+    search.addEventListener('input', function () {
+      state.q = search.value;
+      renderUserList();
+    });
+    document.getElementById('roleFilter').addEventListener('change', function () {
+      state.role = this.value;
+      renderUserList();
+    });
+    document.getElementById('statusFilter').addEventListener('change', function () {
+      state.status = this.value;
+      renderUserList();
+    });
+    var add = document.getElementById('addUser');
+    if (add) add.addEventListener('click', function () { openUserForm(null); });
+    renderUserList();
+  }
+
+  /* ---------- 待完善商家 ---------- */
+  function pendingCard(m) {
+    var o = m.fromOrderId ? Store.order(m.fromOrderId) : null;
+    return '<article class="pcard">' +
+      '<div class="row"><b class="grow">' + esc(m.name) + '</b><span class="badge amber">待完善</span></div>' +
+      '<div class="pmeta">电话：' + (m.phone ? esc(m.phone) : '未填') + '</div>' +
+      '<div class="pmeta">来源订单：' + (o ? esc(o.no) : '自由填写') + '</div>' +
+      '<div class="pmeta">创建时间：' + (o && o.createdAt ? UI.fmtDate(o.createdAt) : '—') + '</div>' +
+      '<button type="button" class="btn pri block" data-complete="' + m.id + '" style="margin-top:10px">补全门店信息</button>' +
+      '</article>';
+  }
+
+  function merchantsView() {
+    var list = Store.pendingMerchants();
+    return '<div class="note">电话录单里自由填写的商家会先进入这里。补全类目、电话和地址后才会进入商家库；同名或同电话的商家会自动合并到已有商家。</div>' +
+      '<div class="list-head"><span class="small muted">' + list.length + ' 个待完善商家</span></div>' +
+      (list.length ? list.map(pendingCard).join('')
+        : '<div class="card">' + UI.empty('assets/brand/empty-orders.svg', '没有待完善商家', '自由填写商家会出现在这里') + '</div>');
+  }
+
+  function bindMerchants() {
+    document.querySelectorAll('[data-complete]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var m = Store.merchant(Number(b.getAttribute('data-complete')));
+        if (m) openComplete(m);
+      });
+    });
+  }
+
+  function completeFormHtml(m) {
+    var cats = Store.categories().map(function (c) {
+      return '<label class="chip" data-cat-c><input type="checkbox" value="' + c.id + '"><span>' + esc(c.name) + '</span></label>';
+    }).join('');
+    return '<div class="note" style="margin-bottom:12px">补全后进入正常商家库。同名或同电话的商家会自动合并到已有商家，历史订单一起归并。</div>' +
+      '<div class="field"><label class="fl req">店名</label><input id="cmName" value="' + esc(m.name) + '"></div>' +
+      '<div class="field"><label class="fl req">类目（至少选一个）</label><div class="chips">' + cats + '</div></div>' +
+      '<div class="field"><label class="fl req">门店电话</label><input id="cmPhone" type="tel" inputmode="tel" value="' + esc(m.phone) + '"></div>' +
+      '<div class="field"><label class="fl req">门店地址</label><input id="cmAddr" value="' + esc(m.address) + '"></div>' +
+      '<label class="switch" style="margin-bottom:4px"><input type="checkbox" id="cmAccount"><span>同时开通商家账号</span></label>' +
+      '<div class="hint" style="margin-top:0;margin-bottom:12px">开通账号时，门店电话要填 11 位手机号，用这个号码登录商家工作台。</div>' +
+      '<div id="cmPwdBox" class="hide"><div class="field"><label class="fl">初始密码</label>' +
+        '<input id="cmPwd" value="123456" autocomplete="new-password">' +
+        '<div class="hint">默认 123456，本人登录后可改。</div></div></div>';
+  }
+
+  function openComplete(m) {
+    var sheet = UI.sheet({
+      title: '补全商家 · ' + esc(m.name),
+      body: completeFormHtml(m),
+      foot: '<button type="button" class="btn" data-x="cancel">取消</button>' +
+            '<button type="button" class="btn pri" data-x="save">保存并归档</button>'
+    });
+    if (!sheet) return;
+
+    sheet.querySelectorAll('.chip input[type="checkbox"]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var chip = cb.closest('.chip');
+        if (chip) chip.classList.toggle('on', cb.checked);
+      });
+    });
+
+    var acc = sheet.querySelector('#cmAccount');
+    acc.addEventListener('change', function () {
+      sheet.querySelector('#cmPwdBox').classList.toggle('hide', !acc.checked);
+    });
+
+    sheet.querySelector('[data-x="cancel"]').addEventListener('click', UI.closeSheet);
+    sheet.querySelector('[data-x="save"]').addEventListener('click', function () {
+      try {
+        var name = sheetValue(sheet, '#cmName');
+        if (!name) throw new Error('店名必填');
+        var ids = [];
+        sheet.querySelectorAll('[data-cat-c] input:checked').forEach(function (i) { ids.push(Number(i.value)); });
+        if (!ids.length) throw new Error('补全商家至少要选一个类目');
+        var phone = sheetValue(sheet, '#cmPhone');
+        if (!phone) throw new Error('补全商家要填门店电话');
+        var address = sheetValue(sheet, '#cmAddr');
+        if (!address) throw new Error('补全商家要填门店地址');
+        var createAccount = acc.checked;
+        var pwd = sheetValue(sheet, '#cmPwd') || '123456';
+        if (createAccount && !/^1\d{10}$/.test(phone)) throw new Error('开通账号时，门店电话要填 11 位手机号');
+        if (createAccount && pwd.length < 6) throw new Error('密码至少 6 位');
+
+        var merged = Store.get().merchants.some(function (x) {
+          return x.id !== m.id && x.status === 'active' && (x.name === name || (!!phone && x.phone === phone));
+        });
+        Store.completeMerchant(m.id, {
+          name: name, categoryIds: ids, phone: phone, address: address,
+          createAccount: createAccount, password: pwd
+        });
+        UI.closeSheet();
+        UI.toast(merged ? '已合并到同名或同电话商家' : '商家已补全', 'ok');
+        render();
+      } catch (e) { UI.err(e); }
+    });
+  }
+
+  /* ---------- 权限矩阵 ---------- */
+  function permsView() {
+    var rolePerms = Store.rolePerms().admin || [];
+    var editable = canPerm;
+    var groups = Store.PERM_GROUPS.map(function (g) {
+      var items = g.items || [];
+      var on = items.filter(function (it) { return rolePerms.indexOf(it[0]) >= 0; }).length;
+      var rows = items.map(function (it) {
+        var checked = rolePerms.indexOf(it[0]) >= 0;
+        return '<label class="prow">' +
+          '<span class="plabel"><b>' + esc(it[1]) + '</b><code>' + esc(it[0]) + '</code></span>' +
+          '<span class="switch"><input type="checkbox" data-perm="' + esc(it[0]) + '"' + (checked ? ' checked' : '') + (editable ? '' : ' disabled') + '></span>' +
+          '</label>';
+      }).join('');
+      return '<details class="pgroup" open>' +
+        '<summary><span class="pg-name">' + esc(g.g) + '</span>' +
+        '<span class="pcount">' + on + '/' + items.length + '</span></summary>' +
+        '<div class="pg-body">' + rows + '</div>' +
+        '</details>';
+    }).join('');
+
+    return '<div class="perms-view' + (editable ? '' : ' readonly') + '">' +
+      (editable ? '' : '<div class="alert info" style="margin-bottom:12px">只有超级管理员可以修改权限矩阵。当前账号只能查看。</div>') +
+      '<div class="section-title">管理员权限</div>' +
+      groups +
+      '<div class="note" style="margin-top:14px">商家、骑手、客户使用各自工作区的固定权限，不在这张矩阵里；超级管理员始终拥有全部权限。</div>' +
+      '<div class="hint" style="margin-top:8px">' + (editable ? '保存后重新进入页面生效。' : '需要修改请联系超级管理员。') + '</div>' +
+      (editable
+        ? '<div class="savebar"><span class="sb-text" id="permCount"></span>' +
+          '<button type="button" class="btn pri" id="savePerms">保存权限</button></div>'
+        : '') +
+      '</div>';
+  }
+
+  function bindPerms() {
+    var boxes = [].slice.call(document.querySelectorAll('.perms-view input[data-perm]'));
+    var countEl = document.getElementById('permCount');
+
+    function refresh() {
+      if (countEl) countEl.textContent = '已选 ' + boxes.filter(function (b) { return b.checked; }).length + ' 项权限';
+      document.querySelectorAll('details.pgroup').forEach(function (d) {
+        var all = d.querySelectorAll('input[data-perm]');
+        var on = [].slice.call(all).filter(function (b) { return b.checked; }).length;
+        var badge = d.querySelector('.pcount');
+        if (badge) badge.textContent = on + '/' + all.length;
+      });
+    }
+    boxes.forEach(function (b) { b.addEventListener('change', refresh); });
+    refresh();
+
+    var saveBtn = document.getElementById('savePerms');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        try {
+          var selected = boxes.filter(function (b) { return b.checked; }).map(function (b) {
+            return b.getAttribute('data-perm');
+          });
+          Store.saveRolePerms('admin', selected);
+          UI.toast('权限已保存，重新进入后生效', 'ok');
+        } catch (e) { UI.err(e); }
+      });
+    }
+  }
+
+  /* ---------- 区块切换 ---------- */
+  var TABS = [['users', '用户'], ['merchants', '待完善商家'], ['perms', '权限矩阵']];
+
+  function tabsHtml() {
+    return '<div class="seg users-tabs" id="pageTabs">' + TABS.map(function (t) {
+      var on = state.tab === t[0];
+      return '<button type="button" data-tab="' + t[0] + '"' + (on ? ' class="on" aria-selected="true"' : '') + '>' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function bindTabs() {
+    document.querySelectorAll('#pageTabs [data-tab]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-tab');
+        if (tab === state.tab) return;
+        state.tab = tab;
+        render();
+      });
+    });
+  }
+
+  function render() {
+    var html = tabsHtml();
+    if (state.tab === 'users') html += usersView();
+    else if (state.tab === 'merchants') html += merchantsView();
+    else html += permsView();
+
+    body.innerHTML = html;
+    bindTabs();
+    if (state.tab === 'users') bindUsers();
+    else if (state.tab === 'merchants') bindMerchants();
+    else bindPerms();
+    window.scrollTo(0, 0);
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

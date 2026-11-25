@@ -1,0 +1,67 @@
+# 同城跑腿 · 单机部署（NAS / 2C4G 云主机通用）
+#
+# 三个容器：mysql（数据） + backend（Java，只监听内部网络） + web（nginx，静态站 + 反代）
+# 对外只暴露 web 的一个端口。备份 = 定时跑 backup.sh（mysqldump + uploads 目录）。
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: paotui-mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    # 建表脚本里有禁止改流水的触发器，开启 binlog 时非 SUPER 用户需要这个开关
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PAOTUI_MYSQL_ROOT_PASSWORD:?先在 .env 里设置}
+      MYSQL_DATABASE: paotui
+      MYSQL_USER: paotui
+      MYSQL_PASSWORD: ${PAOTUI_DB_PASSWORD:?先在 .env 里设置}
+      TZ: Asia/Shanghai
+    volumes:
+      - paotui-mysql-data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/paotui.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-upaotui", "-p${PAOTUI_DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [paotui]
+
+  backend:
+    image: ${PAOTUI_BACKEND_IMAGE:?请设置公开 GHCR 后端镜像}
+    container_name: paotui-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PAOTUI_DB_HOST: mysql
+      PAOTUI_DB_PORT: "3306"
+      PAOTUI_DB_NAME: paotui
+      PAOTUI_DB_USER: paotui
+      PAOTUI_DB_PASSWORD: ${PAOTUI_DB_PASSWORD}
+      PAOTUI_UPLOAD_DIR: /data/uploads
+      PAOTUI_ADMIN_PHONE: ${PAOTUI_ADMIN_PHONE:-13800000000}
+      PAOTUI_ADMIN_PASSWORD: ${PAOTUI_ADMIN_PASSWORD:?先在 .env 里设置初始密码}
+      TZ: Asia/Shanghai
+    volumes:
+      - paotui-uploads:/data/uploads
+    networks: [paotui]
+
+  web:
+    image: ${PAOTUI_WEB_IMAGE:?请设置公开 GHCR 前端镜像}
+    container_name: paotui-web
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "${PAOTUI_HTTP_PORT:-8088}:80"
+    volumes:
+      - paotui-uploads:/usr/share/nginx/uploads:ro
+    networks: [paotui]
+
+volumes:
+  paotui-mysql-data:
+  paotui-uploads:
+
+networks:
+  paotui:
+    driver: bridge

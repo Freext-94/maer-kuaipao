@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>客户账单 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .kpi-grid.three .kpi .v { font-size: 18px; }
+  .kpi-grid.three .kpi .k,
+  .kpi-grid.three .kpi .f { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-grid.three .kpi .f { font-size: 10px; }
+  .cust-card { cursor: pointer; text-align: left; }
+  .cust-card:active { transform: translateY(1px); }
+  .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet .order-card { margin-top: 8px; }
+  .sheet .section-title { margin: 14px 0 2px; }
+  .pay-row { align-items: flex-start; }
+  .pay-row .amt { flex: 0 0 auto; text-align: right; font-weight: 750; color: var(--brand-ink); white-space: nowrap; }
+  .card.pad0 .list-row { padding-left: 14px; padding-right: 14px; }
+  .bill-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+</style>
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script src="assets/bill-image.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var screen = UI.adminPage({
+    active: 'billing',
+    title: '客户账单',
+    sub: '谁欠多少 · 登记还款',
+    perm: 'ledger.view',
+    body:
+      '<div class="kpi-grid three" id="kpis"></div>' +
+      '<div class="card flat" style="padding:8px 10px;margin-bottom:14px">' +
+        '<input type="search" id="q" placeholder="搜姓名 / 手机号 / 备注" aria-label="搜索客户">' +
+      '</div>' +
+      '<div class="section" id="list"></div>' +
+      '<div class="note small">只记录、查询、登记还款；不设账期和额度，不自动停单。累计收回按全部收款流水合计。</div>'
+  });
+  if (!screen) return;
+
+  var q = '';
+
+  function parseYuan(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^\d.-]/g, ''));
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  }
+
+  function renderKpis() {
+    var collected = Store.collectedTotalFen();
+    var total = Store.billingSummary().totalBillFen;
+    var count = Store.get().customers.length;
+    document.getElementById('kpis').innerHTML =
+      '<div class="kpi brand"><div class="k">累计收回</div><div class="v">' + UI.money(collected) + '</div><div class="f">全部收款流水</div></div>' +
+      '<div class="kpi"><div class="k">账单合计</div><div class="v">' + UI.money(total) + '</div><div class="f">全部流水净额</div></div>' +
+      '<div class="kpi"><div class="k">客户数</div><div class="v">' + count + ' 位</div><div class="f">含已结清客户</div></div>';
+  }
+
+  function custCard(x) {
+    var c = x.customer;
+    var u = Store.user(c.userId);
+    var owed = x.owedFen;
+    return '<div class="order-card cust-card" data-cid="' + c.id + '" role="button" tabindex="0" aria-label="查看客户账单">' +
+      '<div class="row"><b>' + UI.esc(u ? u.name : '客户') + '</b>' +
+        (owed > 0 ? '<span class="badge amber">欠 ' + UI.money(owed) + '</span>' : '<span class="badge green">已结清</span>') +
+        '<span class="right small muted">›</span></div>' +
+      (c.note ? '<div class="small muted ell" style="margin-top:3px">备注：' + UI.esc(c.note) + '</div>' : '') +
+      '<div class="small muted ell" style="margin-top:2px">' + UI.esc(u ? u.phone : '—') + '</div>' +
+      '<div class="row" style="margin-top:8px;align-items:flex-end">' +
+        '<div><div class="small muted">当前账单</div>' +
+          '<b class="money" style="font-size:19px;color:' + (owed > 0 ? 'var(--brand-ink)' : 'var(--ink)') + '">' + UI.money(owed) + '</b></div>' +
+        '<div class="right" style="text-align:right"><div class="small muted">累计已还</div>' +
+          '<b class="money" style="font-size:14px">' + UI.money(x.collectedFen) + '</b></div>' +
+      '</div>' +
+      '<div class="small muted" style="margin-top:6px">最近下单 ' + UI.esc(x.lastOrderAt ? UI.fmtDate(x.lastOrderAt) : '—') +
+        ' · 最近还款 ' + UI.esc(x.lastPaymentAt ? UI.fmtDate(x.lastPaymentAt) : '—') + '</div>' +
+      '</div>';
+  }
+
+  function renderList() {
+    var all = Store.debtCustomers();
+    var key = q.trim().toLowerCase();
+    var rows = all.filter(function (x) {
+      if (!key) return true;
+      var u = Store.user(x.customer.userId);
+      return [u ? u.name : '', u ? u.phone : '', x.customer.note || ''].join(' ').toLowerCase().indexOf(key) >= 0;
+    });
+    var owedTotal = rows.reduce(function (s, x) { return s + x.owedFen; }, 0);
+    var el = document.getElementById('list');
+
+    if (!all.length) {
+      el.innerHTML = '<div class="card">' + UI.empty('assets/brand/empty-debts.svg', '还没有客户', '电话录单时新建客户，这里就会出现客户账单') + '</div>';
+      return;
+    }
+    if (!rows.length) {
+      el.innerHTML = '<div class="card">' + UI.empty('assets/brand/empty-debts.svg', '没有匹配的客户', '换个姓名、手机号或备注关键词试试') + '</div>';
+      return;
+    }
+    el.innerHTML =
+      '<div class="section-title">客户<span class="more">' + rows.length + ' 位 · 欠款 ' + UI.money(owedTotal) + '</span></div>' +
+      (owedTotal <= 0 ? '<div class="note" style="margin-bottom:10px">所有客户都已结清，当前没有欠款。</div>' : '') +
+      rows.map(custCard).join('');
+  }
+
+  function payRow(e) {
+    var method = Store.METHOD_LABELS[e.method] || e.method || '—';
+    return '<div class="list-row pay-row">' +
+      '<div class="grow">' +
+        '<div class="row"><b class="small num">' + UI.esc(UI.fmtDate(e.at)) + '</b>' +
+          '<span class="badge cyan">' + UI.esc(method) + '</span></div>' +
+        (e.note ? '<div class="small muted ell">' + UI.esc(e.note) + '</div>' : '') +
+        (e.operator ? '<div class="small muted">经办 ' + UI.esc(e.operator) + '</div>' : '') +
+      '</div>' +
+      '<div class="amt">+' + UI.money(Math.abs(Number(e.amountFen || 0))) + '</div>' +
+      '</div>';
+  }
+
+  function orderBrief(o) {
+    return '<div class="order-card" style="padding:11px 12px">' +
+      '<div class="row"><b class="num">' + UI.esc(o.no) + '</b>' +
+        '<span class="badge ' + UI.esc(Store.statusColor(o)) + '">' + UI.esc(Store.statusLabel(o)) + '</span>' +
+        '<span class="right small muted">' + UI.esc(UI.fmtDay(o.createdAt)) + '</span></div>' +
+      '<div class="small muted" style="margin-top:3px">应收 ' + UI.money(Store.receivable(o)) +
+        ' · 已收 ' + UI.money(Store.paidOf(o.id)) +
+        ' · 未收 <b style="color:var(--brand-ink)">' + UI.money(Store.owedOf(o)) + '</b></div>' +
+      (window.BillImage ? '<div class="bill-actions"><button type="button" class="btn sm" data-bill="' + o.id + '">生成账单图片</button></div>' : '') +
+      '</div>';
+  }
+
+  function openDetail(cid) {
+    var bill;
+    try { bill = Store.customerBill(cid); } catch (e) { UI.err(e); return; }
+    var c = bill.customer;
+    var u = Store.user(c.userId);
+    var canPay = Store.can('ledger.payment') && bill.owedFen > 0;
+
+    var body =
+      '<div class="card flat" style="background:var(--cream);border-color:var(--brand)">' +
+        '<div class="row" style="align-items:flex-end">' +
+          '<div><div class="small muted">当前账单金额</div>' +
+            '<b class="money" style="font-size:26px;color:var(--brand-ink)">' + UI.money(bill.owedFen) + '</b></div>' +
+          '<div class="right" style="text-align:right"><div class="small muted">累计已还</div>' +
+            '<b class="money" style="font-size:16px">' + UI.money(bill.collectedFen) + '</b></div>' +
+        '</div>' +
+        '<div class="small muted" style="margin-top:6px">' + UI.esc(u ? u.phone : '—') +
+          (c.note ? ' · 备注：' + UI.esc(c.note) : '') + '</div>' +
+      '</div>' +
+      '<div class="section-title">未收订单<span class="more">' + bill.openOrders.length + ' 单</span></div>' +
+      (bill.openOrders.length
+        ? bill.openOrders.map(orderBrief).join('')
+        : '<div class="note">已结清，没有未收订单。</div>') +
+      '<div class="section-title">收款记录<span class="more">' + bill.payments.length + ' 笔</span></div>' +
+      (bill.payments.length
+        ? '<div class="card flat pad0">' + bill.payments.map(payRow).join('') + '</div>'
+        : '<div class="small muted">还没有收款记录。</div>') +
+      '<div class="small muted" style="margin:12px 0 4px">系统只记录账单和还款，不设额度、不拦新单。</div>';
+
+    UI.sheet({
+      title: UI.esc(u ? u.name : '客户') + ' · 客户账单',
+      body: body,
+      foot: canPay ? '<button type="button" class="btn pri" data-act="pay">登记收款</button>' : undefined,
+      onMount: function (sheet) {
+        Array.prototype.forEach.call(sheet.querySelectorAll('[data-bill]'), function (b) {
+          b.addEventListener('click', function () {
+            if (window.BillImage) window.BillImage.open(Number(b.getAttribute('data-bill')));
+          });
+        });
+        var pay = sheet.querySelector('[data-act="pay"]');
+        if (pay) pay.addEventListener('click', function () { openPay(cid, null); });
+      }
+    });
+  }
+
+  function openPay(cid, orderId) {
+    var bill;
+    try { bill = Store.customerBill(cid); } catch (e) { UI.err(e); return; }
+    var u = Store.user(bill.customer.userId);
+    var target = orderId ? Store.order(orderId) : null;
+    var defaultFen = target ? Store.owedOf(target) : bill.owedFen;
+
+    var options = '<option value="">按最老欠款依次冲抵（FIFO）</option>' +
+      bill.openOrders.map(function (o) {
+        return '<option value="' + o.id + '"' + (target && target.id === o.id ? ' selected' : '') + '>' +
+          UI.esc(o.no) + '（未收 ' + UI.money(Store.owedOf(o)) + '）</option>';
+      }).join('');
+
+    var sheet = UI.sheet({
+      title: '登记收款 · ' + UI.esc(u ? u.name : '客户'),
+      body:
+        '<div class="note" style="margin-bottom:12px">当前账单 <b>' + UI.money(bill.owedFen) + '</b>。没有预付/充值，收款不能超过欠款。</div>' +
+        '<div class="field"><label class="fl" for="payAmt">金额（元）</label>' +
+          '<input id="payAmt" inputmode="decimal" value="' + UI.yuan(defaultFen) + '"></div>' +
+        '<div class="field"><label class="fl" for="payMethod">方式</label>' +
+          '<select id="payMethod"><option value="wechat">微信</option><option value="alipay">支付宝</option><option value="cash">现金</option></select></div>' +
+        '<div class="field"><label class="fl" for="payOrder">冲抵哪一单</label>' +
+          '<select id="payOrder">' + options + '</select>' +
+          '<div class="hint">不选就按最老欠款依次冲抵。</div></div>' +
+        '<div class="field"><label class="fl" for="payNote">备注</label>' +
+          '<input id="payNote" placeholder="例：客户微信转来，先还最老一单"></div>',
+      foot: '<button type="button" class="btn ghost" data-act="back">返回</button>' +
+        '<button type="button" class="btn pri" data-act="ok">确认收款</button>',
+      onMount: function (el) {
+        el.querySelector('[data-act="back"]').addEventListener('click', function () {
+          UI.closeSheet();
+          openDetail(cid);
+        });
+        el.querySelector('[data-act="ok"]').addEventListener('click', function () {
+          try {
+            var amt = parseYuan(el.querySelector('#payAmt').value);
+            if (!(amt > 0)) throw new Error('收款金额必须大于 0');
+            if (amt > bill.owedFen) throw new Error('收款 ' + UI.money(amt) + ' 超过当前账单 ' + UI.money(bill.owedFen));
+            var oid = el.querySelector('#payOrder').value;
+            Store.payDebt(cid, amt, el.querySelector('#payMethod').value, el.querySelector('#payNote').value, oid ? Number(oid) : null);
+            UI.closeSheet();
+            UI.toast('已登记收款 ' + UI.money(amt), 'ok');
+            renderKpis();
+            renderList();
+            openDetail(cid);
+          } catch (e) { UI.err(e); }
+        });
+      }
+    });
+    if (sheet) {
+      var first = sheet.querySelector('#payAmt');
+      if (first) setTimeout(function () { try { first.focus(); first.select(); } catch (e) { /* ignore */ } }, 40);
+    }
+  }
+
+  function openByCard(cid) {
+    if (isNaN(cid) || !Store.customer(cid)) { UI.toast('客户不存在', 'err'); return; }
+    openDetail(cid);
+  }
+
+  screen.addEventListener('click', function (e) {
+    var card = e.target.closest ? e.target.closest('[data-cid]') : null;
+    if (card) openByCard(Number(card.getAttribute('data-cid')));
+  });
+  screen.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var card = e.target.closest ? e.target.closest('[data-cid]') : null;
+    if (card) { e.preventDefault(); openByCard(Number(card.getAttribute('data-cid'))); }
+  });
+
+  document.getElementById('q').addEventListener('input', function (e) {
+    q = e.target.value;
+    renderList();
+  });
+
+  renderKpis();
+  renderList();
+
+  try {
+    var cid = Number(new URLSearchParams(location.search).get('customerId'));
+    if (cid && Store.customer(cid)) openDetail(cid);
+  } catch (e) { /* ignore */ }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>调度台 · 同城跑腿原型</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var COLS = ['PENDING_DISPATCH', 'PENDING_PREP', 'READY_FOR_PICKUP', 'PICKED_UP', 'DELIVERING', 'DELIVERED', 'FINISHED'];
+  var scope = 'today';
+
+  UI.page({
+    title: '调度台',
+    active: 'dispatch',
+    sub: '电话录单 · 通知商家 · 状态跟踪 · 垫付与结单',
+    actions: '<label class="small muted"><input type="checkbox" id="scopeAll"> 显示历史单</label>' +
+      '<button class="btn" id="btnTimeout">查看超时未确认</button>' +
+      '<button class="btn pri" id="btnNew">＋ 电话录单</button>',
+    body: '<div class="wrap wide"><div id="vbar"></div><div id="kanban" class="kanban"></div>' +
+      '<div id="alerts" class="stack" style="margin-top:14px"></div></div>'
+  });
+
+  var vbar = document.getElementById('vbar');
+  var kanban = document.getElementById('kanban');
+  var alerts = document.getElementById('alerts');
+
+  document.getElementById('btnNew').addEventListener('click', newOrderForm);
+  document.getElementById('btnTimeout').addEventListener('click', timeoutList);
+  document.getElementById('scopeAll').addEventListener('change', function (e) {
+    scope = e.target.checked ? 'all' : 'today';
+    render();
+  });
+
+  /* ---------------- 渲染 ---------------- */
+  function render() {
+    var s = Store.get();
+    vbar.innerHTML = UI.verifyBar();
+    var list = s.orders.filter(function (o) {
+      return scope === 'all' ? true : (UI.isToday(o.created_at) || !Store.isTerminal(o.status));
+    }).sort(function (a, b) { return a.created_at - b.created_at; });
+
+    kanban.innerHTML = COLS.map(function (st) {
+      var items = list.filter(function (o) { return o.status === st; });
+      return '<section class="kcol"><div class="kh"><span class="dot ' + (items.length ? 'live' : '') + '"></span>' +
+        UI.esc(UI.stName(st)) + '<span class="n">' + items.length + '</span></div><div class="kb">' +
+        (items.length ? items.map(function (o) { return card(s, o); }).join('') :
+          '<div class="muted small center" style="padding:18px 0">—</div>') +
+        '</div></section>';
+    }).join('');
+
+    Array.prototype.forEach.call(kanban.querySelectorAll('.oc'), function (el) {
+      el.addEventListener('click', function () { detail(el.dataset.id); });
+      Array.prototype.forEach.call(el.querySelectorAll('[data-act]'), function (b) {
+        b.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          act(b.dataset.act, b.dataset.id, b.dataset.rider);
+        });
+      });
+    });
+
+    // 需要盯的两件事：商家超时未确认、垫付未回款
+    var stale = s.prep.filter(function (p) {
+      if (p.status !== 'notified') return false;
+      var o = UI.order(s, p.order_id);
+      if (!o || Store.isTerminal(o.status)) return false;
+      var m = UI.merchant(s, p.merchant_id);
+      return (Date.now() - p.notified_at) > (m ? m.prep_timeout_min : 10) * 60000;
+    });
+    var short_ = s.prep.filter(function (p) { return p.shortage && p.status !== 'ready'; });
+    var lost = s.advances.filter(function (a) { return a.status === 'loss'; });
+    var html = '';
+    if (short_.length) {
+      html += '<div class="alert err"><b>商家上报缺货 ' + short_.length + ' 单：</b>' + short_.map(function (p) {
+        var o = UI.order(s, p.order_id);
+        return o ? o.order_no + '（' + UI.esc(p.shortage_text) + '）' : '';
+      }).join('、') + ' — 需重新选商家或联系客户</div>';
+    }
+    if (stale.length) {
+      html += '<div class="alert warn"><b>' + stale.length + ' 单商家超时未确认备货</b>（订阅消息额度不足时推送会静默失败，只能靠常驻页提示音或电话）：' +
+        stale.map(function (p) {
+          var o = UI.order(s, p.order_id);
+          var mins = Math.round((Date.now() - p.notified_at) / 60000);
+          return o ? UI.esc(UI.merchant(s, p.merchant_id).name) + ' ' + o.order_no + '（已 ' + mins + ' 分钟）' : '';
+        }).join('、') + '</div>';
+    }
+    if (lost.length) {
+      html += '<div class="alert info"><b>垫付损失已确认 ' + lost.length + ' 笔，合计 ' +
+        UI.money(lost.reduce(function (a, x) { return a + (x.loss_fen || 0); }, 0)) + '</b>（不计入客户欠款，属平台成本，需在月度看板体现）</div>';
+    }
+    alerts.innerHTML = html;
+  }
+
+  function card(s, o) {
+    var c = UI.customer(s, o.customer_id);
+    var m = UI.merchant(s, o.merchant_id);
+    var recv = Store.orderReceivable(s, o);
+    var adv = UI.advOf(s, o.id);
+    var prep = UI.prepOf(s, o.id);
+    var overdue = c && Store.customerBalance(s, c.id) > c.credit_limit_fen;
+    var html = '<article class="oc ' + UI.stColor(o.status) + (prep && prep.fresh ? ' fresh' : '') + '" data-id="' + o.id + '">';
+    html += '<div class="t"><b>' + UI.esc(c ? c.name : '散客') + '</b><span class="no">' + o.order_no + '</span>' +
+      '<span class="right num strong">' + UI.money(recv) + '</span></div>';
+    html += '<div class="l">' + UI.esc(o.items[0].text) + '</div>';
+    html += '<div class="l muted">' + UI.esc(m ? m.name : '-') + ' → ' + UI.esc(o.address ? o.address.poi : '-') +
+      (o.address && o.address.floor ? ' ' + o.address.floor + '楼' : '') + '</div>';
+    html += '<div class="f">';
+    if (o.source === 'phone') html += '<span class="badge slate">电话·' + UI.esc(o.created_by) + '</span>';
+    else html += '<span class="badge blue">客户自助</span>';
+    var r = UI.rider(s, o.rider_id);
+    html += r ? '<span class="badge ghost">' + UI.esc(r.name) + '</span>' : '<span class="badge red">未指派</span>';
+    if (adv) html += '<span class="badge violet">垫付' + UI.money(adv.amount_fen) + '</span>';
+    if (prep && prep.shortage) html += '<span class="badge red">缺货</span>';
+    if (overdue) html += '<span class="badge red">超额度</span>';
+    html += '</div>';
+    html += actions(s, o);
+    html += '</article>';
+    return html;
+  }
+
+  function actions(s, o) {
+    var rs = s.riders.map(function (r) {
+      return '<option value="' + r.id + '"' + (o.rider_id === r.id ? ' selected' : '') + '>' + UI.esc(r.name) + '</option>';
+    }).join('');
+    var b = '<div class="f" style="margin-top:8px">';
+    if (o.status === 'PENDING_DISPATCH') {
+      b += '<select data-act="assign" data-id="' + o.id + '" class="btn sm" style="width:auto;padding:4px 8px">' +
+        '<option value="">指派骑手…</option>' + rs + '</select>';
+    }
+    if (o.status === 'PENDING_PREP') {
+      b += '<button class="btn sm pri" data-act="ready" data-id="' + o.id + '">代点备货完成</button>';
+      b += '<button class="btn sm" data-act="recall" data-id="' + o.id + '">重发通知</button>';
+    }
+    if (o.status === 'READY_FOR_PICKUP') b += '<button class="btn sm pri" data-act="pick" data-id="' + o.id + '">取货登记</button>';
+    if (o.status === 'PICKED_UP') b += '<button class="btn sm pri" data-act="deliver" data-id="' + o.id + '">开始配送</button>';
+    if (o.status === 'DELIVERING') b += '<button class="btn sm pri" data-act="arrived" data-id="' + o.id + '">送达拍照</button>';
+    if (o.status === 'DELIVERED') b += '<button class="btn sm pri" data-act="finish" data-id="' + o.id + '">结单收款</button>';
+    if (!Store.isTerminal(o.status)) b += '<button class="btn sm dgr" data-act="cancel" data-id="' + o.id + '">取消</button>';
+    return b + '</div>';
+  }
+
+  function act(a, id, extra) {
+    var s = Store.get();
+    var o = UI.order(s, id);
+    try {
+      if (a === 'assign') {
+        var rid = document.querySelector('[data-act=assign][data-id="' + id + '"]').value;
+        if (!rid) return;
+        Store.assignRider(id, rid);
+        UI.toast('已指派 ' + UI.rider(Store.get(), rid).name + '，并已通知商家备货', 'ok');
+      } else if (a === 'ready') {
+        Store.markReady(id, { actor: '老板代点', acked_channel: 'manual' });
+        UI.toast('已代点备货完成（留痕：操作人=老板）', 'ok');
+      } else if (a === 'recall') {
+        Store.notifyMerchant(id);
+        UI.toast('已重新通知商家（通知记录 +3 条）');
+      } else if (a === 'pick') pickForm(o);
+      else if (a === 'deliver') { Store.startDelivery(id, '老板代操作'); UI.toast('已开始配送'); }
+      else if (a === 'arrived') { Store.markDelivered(id, { photo: 'door-' + Date.now() + '.jpg', actor: '老板代操作' }); UI.toast('已送达（送达照已存证）'); }
+      else if (a === 'finish') finishForm(o);
+      else if (a === 'cancel') cancelForm(o);
+    } catch (e) { UI.err(e); return; }
+    UI.refreshNow();
+    render();
+  }
+
+  /* ---------------- 电话录单（一屏） ---------------- */
+  function newOrderForm() {
+    var s = Store.get();
+    var custOpts = s.customers.map(function (c) {
+      var bal = Store.customerBalance(s, c.id);
+      return '<option value="' + c.id + '">' + UI.esc(c.name) + '（' + UI.esc(c.phone) + '｜' +
+        (c.billing_cycle === 'cod' ? '货到付款' : c.billing_cycle === 'monthly' ? '月结' : '赊账') +
+        (bal > 0 ? '｜欠 ' + UI.yuan(bal) : '') + '）</option>';
+    }).join('');
+    var merOpts = s.merchants.map(function (m) { return '<option value="' + m.id + '">' + UI.esc(m.name) + '</option>'; }).join('');
+    var riderOpts = s.riders.map(function (r) { return '<option value="' + r.id + '">' + UI.esc(r.name) + '</option>'; }).join('');
+
+    var body =
+      '<div class="grid2">' +
+      '<div class="field"><label class="fl">1. 客户（电话里报手机号或从常用里选）</label>' +
+      '<select id="fCust">' + custOpts + '<option value="__new">＋ 新客户（当场建档案）</option></select></div>' +
+      '<div id="fNewCust" style="display:none"><div class="grid2">' +
+      '<input id="fNName" placeholder="称呼，如：刘姐"><input id="fNPhone" placeholder="手机号"></div>' +
+      '<div class="row" style="margin-top:8px"><select id="fNCycle" style="width:auto">' +
+      '<option value="on_credit">赊账（月结）</option><option value="cod">货到付款</option><option value="monthly">固定月结</option></select>' +
+      '<input id="fNLimit" placeholder="信用额度（元）" value="200" style="width:140px"></div></div>' +
+      '<div class="field"><label class="fl">2. 收货地址</label><div class="chips" id="fAddr"></div>' +
+      '<div class="row" style="margin-top:8px"><input id="fPoi" placeholder="新地址：小区/写字楼"><input id="fDetail" placeholder="门牌/楼层" style="width:130px"></div></div>' +
+      '<div class="field"><label class="fl">3. 去哪家买</label><select id="fMer">' + merOpts + '</select></div>' +
+      '<div class="field" style="grid-column:1/-1"><label class="fl">4. 要买什么（原话记下来即可，估价可后改）</label>' +
+      '<textarea id="fText" rows="2" placeholder="例：瑞雪超市 3 个西瓜 + 一提抽纸"></textarea></div>' +
+      '<div class="field"><label class="fl">5. 货款估价（元）</label><input id="fEst" value="86" inputmode="decimal"></div>' +
+      '<div class="field"><label class="fl">6. 跑腿费（元，默认 8）</label><input id="fFee" value="8" inputmode="decimal"></div>' +
+      '<div class="field" style="grid-column:1/-1"><label class="fl">7. 谁去送（不选则进「待派单」）</label>' +
+      '<div class="chips" id="fRider"></div></div>' +
+      '</div>' +
+      '<div class="row small muted"><span class="badge ghost">录单人：' + UI.esc(s.settings.operator) + '</span>' +
+      '<span class="badge ghost">来源：电话</span><span class="right">操作次数 <b id="fClicks">0</b></span></div>' +
+      '<div id="fWarn"></div>';
+
+    var box = UI.modal({
+      title: '电话录单',
+      body: body,
+      okText: '录单并通知商家',
+      onOk: function (bx) {
+        var on = bx.querySelector('#fAddr .chip.on');
+        var addrId = on ? (on.dataset.a || null) : null;
+        var rr = bx.querySelector('#fRider .chip.on');
+        var r = Store.createOrder({
+          source: 'phone', created_by: s.settings.operator,
+          customer_id: pick(bx.querySelector('#fCust').value, '__new'),
+          new_customer_name: bx.querySelector('#fNName').value,
+          new_customer_phone: bx.querySelector('#fNPhone').value,
+          billing_cycle: bx.querySelector('#fNCycle').value,
+          credit_limit_yuan: bx.querySelector('#fNLimit').value,
+          address_id: addrId,
+          addr_poi: bx.querySelector('#fPoi').value,
+          addr_detail: bx.querySelector('#fDetail').value,
+          merchant_id: bx.querySelector('#fMer').value,
+          text: bx.querySelector('#fText').value || '（未填写代买内容）',
+          est_yuan: bx.querySelector('#fEst').value,
+          fee_yuan: bx.querySelector('#fFee').value,
+          rider_id: rr ? (rr.dataset.r || null) : null
+        });
+        var st = Store.get();
+        var c = UI.customer(st, r.order.customer_id);
+        var after = Store.customerBalance(st, c.id) + Store.orderReceivable(st, r.order);
+        var over = after > c.credit_limit_fen;
+        UI.toast('已录单 ' + r.order.order_no + '，通知商家 ' + UI.merchant(st, r.order.merchant_id).name + (over ? '（超额度，仅提醒不拦截）' : ''), over ? '' : 'ok');
+        render();
+      }
+    });
+
+    var clicks = 0;
+    function counted(e) {
+      if (e.target.closest('.ft')) return;
+      if (e.target.closest('input,select,textarea,.chip')) {
+        clicks += 1;
+        box.querySelector('#fClicks').textContent = clicks;
+      }
+    }
+    box.addEventListener('click', counted);
+    box.addEventListener('change', counted);
+
+    function fillAddrs() {
+      var st = Store.get();
+      var cid = box.querySelector('#fCust').value;
+      var wrap = box.querySelector('#fAddr');
+      if (cid === '__new') { wrap.innerHTML = '<span class="muted small">新客户：填下面的新地址</span>'; return; }
+      var c = UI.customer(st, cid);
+      wrap.innerHTML = c.addresses.map(function (a, i) {
+        return '<button type="button" class="chip' + (i === 0 ? ' on' : '') + '" data-a="' + a.id + '">' +
+          UI.esc(a.poi) + (a.detail ? ' ' + UI.esc(a.detail) : '') + '</button>';
+      }).join('') + '<button type="button" class="chip" data-a="">＋ 用新地址</button>';
+      bindChips(wrap);
+      var bal = Store.customerBalance(st, cid);
+      var warn = box.querySelector('#fWarn');
+      warn.innerHTML = bal > 0
+        ? '<div class="alert ' + (bal > c.credit_limit_fen ? 'err' : 'info') + '" style="margin-top:10px">' +
+        UI.esc(c.name) + ' 当前欠款 <b>' + UI.money(bal) + '</b>／额度 ' + UI.money(c.credit_limit_fen) +
+        (bal > c.credit_limit_fen ? ' — 已超额，录单不拦，但结单挂账前请先收款' : ' — 本单挂账后可能超额') + '</div>'
+        : '';
+    }
+    function bindChips(wrap) {
+      Array.prototype.forEach.call(wrap.querySelectorAll('.chip'), function (ch) {
+        ch.addEventListener('click', function () {
+          Array.prototype.forEach.call(wrap.querySelectorAll('.chip'), function (x) { x.classList.remove('on'); });
+          ch.classList.add('on');
+        });
+      });
+    }
+    var riderWrap = box.querySelector('#fRider');
+    riderWrap.innerHTML = s.riders.map(function (r) {
+      return '<button type="button" class="chip" data-r="' + r.id + '">' + UI.esc(r.name) + '</button>';
+    }).join('') + '<button type="button" class="chip" data-r="">先不指派</button>';
+    bindChips(riderWrap);
+
+    box.querySelector('#fCust').addEventListener('change', function () {
+      box.querySelector('#fNewCust').style.display = this.value === '__new' ? '' : 'none';
+      fillAddrs();
+    });
+    fillAddrs();
+  }
+  function pick(v, sentinel) { return v === sentinel ? null : v; }
+
+  /* ---------------- 取货 / 结单 / 取消 ---------------- */
+  function pickForm(o) {
+    var s = Store.get();
+    UI.modal({
+      title: '取货登记 · ' + o.order_no,
+      body: '<div class="note" style="margin-bottom:12px">取货时必须记下<b>实际垫付的货款</b>并留小票照。这一步之后货款金额<b>锁定不可改</b>，有争议只能走「冲正」加一条流水。</div>' +
+        '<div class="grid2"><div class="field"><label class="fl">实际货款（元）— 估 ' + UI.yuan(o.goods_est_fen) + '</label><input id="pReal" value="' + UI.yuan(o.goods_est_fen) + '" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">垫付方式</label><select id="pMethod"><option value="cash">现金</option><option value="transfer">微信/支付宝转账给商家</option></select></div></div>' +
+        '<div class="field"><label class="fl">小票照片</label><button class="btn sm" id="pShoot">拍照（模拟）</button> <span id="pShot" class="muted small">未拍</span></div>',
+      okText: '确认已取货',
+      onOk: function (bx) {
+        var shot = bx.querySelector('#pShot').dataset.v;
+        Store.markPicked(o.id, { real_yuan: bx.querySelector('#pReal').value, receipt: shot, method: bx.querySelector('#pMethod').value, actor: '老板代录' });
+        UI.toast('已取货，垫付 ' + UI.money(Store.get().advances.filter(function (a) { return a.order_id === o.id; })[0].amount_fen) + ' 记账完成', 'ok');
+        render();
+      }
+    });
+    document.querySelector('#pShoot').addEventListener('click', function () {
+      var el = document.querySelector('#pShot');
+      el.textContent = 'receipt-' + Date.now() + '.jpg（已存证）';
+      el.dataset.v = 'receipt-' + Date.now() + '.jpg';
+      el.className = 'small';
+      el.style.color = 'var(--ok)';
+    });
+  }
+
+  function finishForm(o) {
+    var s = Store.get();
+    var recv = Store.orderReceivable(s, o);
+    var c = UI.customer(s, o.customer_id);
+    var bal = Store.customerBalance(s, c.id);
+    UI.modal({
+      title: '结单收款 · ' + o.order_no,
+      body: '<div class="kv" style="margin-bottom:12px"><dt>货款（已锁定）</dt><dd class="num">' + UI.money(o.goods_real_fen != null ? o.goods_real_fen : o.goods_est_fen) +
+        (o.goods_real_fen == null ? '（未录实付，按估价）' : '') + '</dd>' +
+        '<dt>跑腿费</dt><dd class="num">' + UI.money(o.service_fee_fen) + '</dd>' +
+        '<dt>本单应收</dt><dd class="num strong">' + UI.money(recv) + '</dd>' +
+        '<dt>' + UI.esc(c.name) + ' 原欠款</dt><dd class="num">' + UI.money(bal) + '／额度 ' + UI.money(c.credit_limit_fen) + '</dd></div>' +
+        '<div class="grid2"><div class="field"><label class="fl">当场实收（元）— 剩下的自动挂账</label>' +
+        '<input id="qPaid" value="' + UI.yuan(recv) + '" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">收款方式</label><select id="qMethod">' +
+        '<option>现金</option><option>微信收款码</option><option>支付宝</option><option>预收抵扣</option></select></div></div>' +
+        '<div class="alert info" id="qHint">挂账后欠款：' + UI.money(bal + recv) + '（全额未收时）</div>',
+      okText: '确认结单',
+      onOk: function (bx) {
+        Store.finishOrder(o.id, { paid_yuan: bx.querySelector('#qPaid').value, method: bx.querySelector('#qMethod').value });
+        var st = Store.get();
+        var open = Store.openChargesOf(st, o.customer_id)
+          .filter(function (x) { return x.entry.order_id === o.id; })[0];
+        UI.toast('已结单' + (open ? '，本单挂账 ' + UI.money(open.open_fen) : '，本单已收清'), 'ok');
+        render();
+      }
+    });
+    var qi = document.querySelector('#qPaid');
+    var qh = document.querySelector('#qHint');
+    qi.addEventListener('input', function () {
+      var paid = Math.round((Number(qi.value) || 0) * 100);
+      var after = bal + recv - paid;
+      qh.className = 'alert ' + (after > c.credit_limit_fen ? 'err' : 'info');
+      qh.innerHTML = '本单挂账 ' + UI.money(Math.max(0, recv - paid)) + '；' + UI.esc(c.name) + ' 结单后欠款 <b>' + UI.money(after) +
+        '</b>／额度 ' + UI.money(c.credit_limit_fen) + (after > c.credit_limit_fen ? ' — 超额，建议先收一部分' : '');
+    });
+    qi.dispatchEvent(new Event('input'));
+  }
+
+  function cancelForm(o) {
+    var s = Store.get();
+    var adv = UI.advOf(s, o.id);
+    UI.modal({
+      title: '取消订单 · ' + o.order_no,
+      body: (adv ? '<div class="alert err" style="margin-bottom:12px">本单已垫付 <b>' + UI.money(adv.amount_fen) +
+        '</b>。必须先记「已向商家追回」或勾选「确认损失」，否则不允许取消 —— 这个口子漏一次就是真金白银。</div>' : '') +
+        '<div class="field"><label class="fl">取消原因（必填，用于月度复盘）</label><select id="cReason">' +
+        '<option value="">请选择…</option><option>客户电话取消</option><option>商家缺货且无替代</option><option>联系不上收货人</option><option>运力不足</option><option>下错单</option></select></div>' +
+        (adv ? '<div class="grid2"><div class="field"><label class="fl">已追回（元）</label><input id="cRec" value="0" inputmode="decimal"></div>' +
+          '<div class="field"><label class="fl">未追回部分</label><label class="small"><input type="checkbox" id="cLoss"> 确认为平台损失</label></div></div>' : ''),
+      okText: '确认取消',
+      onOk: function (bx) {
+        Store.cancelOrder(o.id, bx.querySelector('#cReason').value, adv ? {
+          recovered_yuan: bx.querySelector('#cRec').value, mark_loss: bx.querySelector('#cLoss').checked
+        } : null);
+        UI.toast('已取消并留痕', 'ok');
+        render();
+      }
+    });
+  }
+
+  /* ---------------- 订单详情抽屉 ---------------- */
+  function detail(id) {
+    var s = Store.get();
+    var o = UI.order(s, id);
+    if (!o) return;
+    var c = UI.customer(s, o.customer_id);
+    var m = UI.merchant(s, o.merchant_id);
+    var adv = UI.advOf(s, o.id);
+    var recv = Store.orderReceivable(s, o);
+    var paid = Store.orderPaid(s, o.id);
+    var notes = UI.notifyOf(s, o.id);
+    var logs = UI.logOf(s, o.id);
+
+    var body = '<div class="grid2" style="margin-bottom:14px">' +
+      '<div><div class="muted small">客户</div><b>' + UI.esc(c.name) + '</b> ' + UI.esc(c.phone) +
+      '<div class="muted small">' + (c.billing_cycle === 'cod' ? '货到付款' : '赊账/月结') + '｜当前欠款 <b class="num">' + UI.money(Store.customerBalance(s, c.id)) + '</b>／额度 ' + UI.money(c.credit_limit_fen) + '</div></div>' +
+      '<div><div class="muted small">商家 / 骑手</div>' + UI.esc(m.name) + '<div class="muted small">' + UI.esc(m.phone) + '｜' + UI.esc((UI.rider(s, o.rider_id) || {}).name || '未指派') + '</div></div>' +
+      '<div style="grid-column:1/-1"><div class="muted small">收货</div>' + UI.esc(o.address ? o.address.contact_name + ' ' + o.address.contact_phone + '｜' + o.address.poi + ' ' + o.address.detail : '-') + '</div>' +
+      '</div>' +
+      '<div class="panel"><div class="bd"><div class="row"><div><div class="muted small">代买内容</div>' + UI.esc(o.items[0].text) + '</div>' +
+      '<div class="right right-t"><div class="muted small">应收</div><div class="big-amt" style="font-size:22px">' + UI.money(recv) + '</div></div></div>' +
+      '<div class="hr"></div><div class="kv">' +
+      '<dt>货款</dt><dd class="num">估 ' + UI.money(o.goods_est_fen) + (o.goods_real_fen != null ? ' → 实付 <b>' + UI.money(o.goods_real_fen) + '</b>' + (o.goods_real_fen >= o.goods_est_fen ? ' 🔒已锁定' : '') : '') + '</dd>' +
+      '<dt>跑腿费</dt><dd class="num">' + UI.money(o.service_fee_fen) + '</dd>' +
+      '<dt>已核销</dt><dd class="num">' + UI.money(paid) + '</dd>' +
+      '<dt>本单未收</dt><dd class="num ' + (recv - paid > 0 ? 'strong' : '') + '">' + UI.money(Math.max(0, recv - paid)) + '</dd>' +
+      (adv ? '<dt>平台垫付</dt><dd class="num">' + UI.money(adv.amount_fen) + '（' + (adv.method === 'cash' ? '现金' : '转账') + '，' + ({ paid: '已付商家', settled: '已结清', loss: '部分损失 ' + UI.money(adv.loss_fen || 0) }[adv.status] || adv.status) + '）</dd>' : '') +
+      (o.cancel_reason ? '<dt>取消原因</dt><dd>' + UI.esc(o.cancel_reason) + '</dd>' : '') +
+      '</div>' +
+      (o.attachments.length ? '<div class="hr"></div><div class="small">凭证：' + o.attachments.map(function (a) {
+        return '<span class="badge ' + (a.type === 'receipt' ? 'violet' : 'green') + '">' + UI.esc(a.name) + '</span>';
+      }).join(' ') + '</div>' : '') +
+      '</div></div>' +
+
+      '<h3 style="margin:16px 0 8px">状态与操作轨迹（谁在什么时间做了什么）</h3>' +
+      '<ul class="tl">' + logs.map(function (l) {
+        return '<li class="' + (l.to === 'CANCELLED' ? 'bad' : (l.reason && /缺货|超时/.test(l.reason) ? 'warn' : '')) + '">' +
+          '<div><b>' + UI.esc(l.to === l.from ? UI.stName(l.to) : (UI.stName(l.from || '新建') + ' → ' + UI.stName(l.to))) + '</b> ' +
+          '<span class="w">' + new Date(l.at).toLocaleString('zh-CN', { hour12: false }) + '</span></div>' +
+          '<div class="w">' + UI.esc(l.actor || '') + (l.role ? '（' + ({ staff: '内部', merchant: '商家', rider: '骑手', customer: '客户' }[l.role]) + '）' : '') +
+          (l.reason ? ' · ' + UI.esc(l.reason) : '') + '</div></li>';
+      }).join('') + '</ul>' +
+
+      '<h3 style="margin:16px 0 8px">通知记录（解释"为什么商家说没收到"）</h3>' +
+      (notes.length ? '<table class="tbl"><tr><th>渠道</th><th>对象</th><th>结果</th><th class="n">时间</th></tr>' +
+        notes.sort(function (a, b) { return b.at - a.at; }).map(function (n) {
+          var okk = n.status === 'acked' || n.status === 'sent_ok';
+          return '<tr><td>' + chName(n.channel) + '</td><td>' + UI.esc(n.target) + '</td><td><span class="badge ' +
+            (okk ? 'green' : n.status === 'no_quota' ? 'red' : n.status === 'sig_pending' ? 'amber' : 'slate') + '">' +
+            nStatus(n.status) + '</span></td><td class="n small muted">' + new Date(n.at).toLocaleTimeString('zh-CN', { hour12: false }) + '</td></tr>';
+        }).join('') + '</table>' : '<div class="muted small">尚未通知商家</div>') +
+
+      '<h3 style="margin:16px 0 8px">该单资金流水（只可追加，不可改）</h3>' +
+      '<table class="tbl"><tr><th>类型</th><th class="n">金额</th><th>备注</th><th>操作人</th><th class="n">时间</th></tr>' +
+        s.entries.filter(function (e) { return e.order_id === o.id; }).map(function (e) {
+          return '<tr><td><span class="badge ' + typeColor(e.type) + '">' + typeName(e.type) + '</span></td>' +
+            '<td class="n">' + UI.money(e.amount_fen) + '</td><td class="small">' + UI.esc(e.note) + '</td>' +
+            '<td class="small">' + UI.esc(e.operator) + '</td><td class="n small muted">' + new Date(e.occurred_at).toLocaleString('zh-CN', { hour12: false }) + '</td></tr>';
+        }).join('') + '</table>' +
+        (s.entries.some(function (e) { return e.order_id === o.id && e.type === 'adjust'; })
+          ? '<div class="note" style="margin-top:8px">有冲正流水：原值保持不变，应收由「货款 + 跑腿费 + 冲正」重算，对账单自动跟随。</div>' : '');
+
+    var foot = '';
+    if (o.status === 'DELIVERED') foot += '<button class="btn pri" data-f="finish">结单收款</button>';
+    if (o.status === 'READY_FOR_PICKUP') foot += '<button class="btn pri" data-f="pick">取货登记</button>';
+    if (Store.customerBalance(s, c.id) > 0) foot += '<button class="btn" data-f="pay">登记收款</button>';
+    if (o.goods_real_fen != null && o.status !== 'CANCELLED') foot += '<button class="btn" data-f="adjust">货款争议（冲正）</button>';
+    if (!Store.isTerminal(o.status)) foot += '<button class="btn dgr" data-f="cancel">取消订单</button>';
+
+    UI.openDrawer({
+      title: o.order_no + ' ' + UI.badge(o.status),
+      headExtra: '<span class="badge slate">' + (o.source === 'phone' ? '电话·' + UI.esc(o.created_by) : '客户自助') + '</span>',
+      body: body,
+      foot: foot,
+      onMount: function (el) {
+        Array.prototype.forEach.call(el.querySelectorAll('[data-f]'), function (b) {
+          b.addEventListener('click', function () {
+            var f = b.dataset.f;
+            UI.closeDrawer();
+            if (f === 'finish') finishForm(o);
+            else if (f === 'pick') pickForm(o);
+            else if (f === 'cancel') cancelForm(o);
+            else if (f === 'adjust') adjustForm(o);
+            else if (f === 'pay') payForm(c);
+            UI.refreshNow(); render();
+          });
+        });
+      }
+    });
+  }
+
+  function adjustForm(o) {
+    var s = Store.get();
+    UI.modal({
+      title: '货款争议 → 冲正（不改原值）',
+      body: '<div class="note" style="margin-bottom:12px">实际垫付小票是 <b>' + UI.money(o.goods_real_fen) + '</b>，永久保留。' +
+        '若确认商家多收，填<b>负数</b>差额（例：-4.40）；若客户少给了，填正数。这会新增一条流水并自动重算应收与欠款。</div>' +
+        '<div class="grid2"><div class="field"><label class="fl">差额（元）</label><input id="aDelta" value="-4.40" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">类型</label><select id="aType"><option value="adjust">冲正（商家退差/补差）</option><option value="waive">减免（老板自己让客）</option></select></div></div>' +
+        '<div class="field"><label class="fl">原因（必填）</label><input id="aWhy" placeholder="例：客户与商家核对小票，西瓜称重偏高"></div>',
+      okText: '记一笔流水',
+      onOk: function (bx) {
+        Store.adjustOrderAmount(o.id, bx.querySelector('#aDelta').value, bx.querySelector('#aWhy').value, bx.querySelector('#aType').value);
+        var st = Store.get();
+        UI.toast('已重算：本单应收 ' + UI.money(Store.orderReceivable(st, UI.order(st, o.id))), 'ok');
+        render();
+      }
+    });
+  }
+
+  function payForm(c) {
+    var s = Store.get();
+    var bal = Store.customerBalance(s, c.id);
+    var opens = Store.openChargesOf(s, c.id);
+    UI.modal({
+      title: '登记收款 · ' + UI.esc(c.name),
+      body: '<div class="kv" style="margin-bottom:12px"><dt>当前欠款</dt><dd class="big-amt" style="font-size:20px">' + UI.money(bal) + '</dd>' +
+        '<dt>未收清单笔</dt><dd class="small">' + (opens.length ? opens.map(function (x) {
+          return x.entry.order_id ? UI.order(s, x.entry.order_id).order_no + ' 欠 ' + UI.money(x.open_fen) : '其他 ' + UI.money(x.open_fen);
+        }).join('；') : '—') + '</dd></div>' +
+        '<div class="grid2"><div class="field"><label class="fl">收款金额（元）</label><input id="rAmt" value="' + UI.yuan(bal) + '" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">方式</label><select id="rMethod"><option>微信转账</option><option>现金</option><option>支付宝</option></select></div></div>' +
+        '<div class="field"><label class="fl">指定冲抵某单？（不选=先冲最老挂账）</label><select id="rFor"><option value="">按时间先冲旧账</option>' +
+        opens.map(function (x) {
+          var oo = x.entry.order_id ? UI.order(s, x.entry.order_id) : null;
+          return oo ? '<option value="' + oo.id + '">' + oo.order_no + '（欠 ' + UI.money(x.open_fen) + '）</option>' : '';
+        }).join('') + '</select></div>',
+      okText: '确认收款',
+      onOk: function (bx) {
+        Store.receivePayment(c.id, bx.querySelector('#rAmt').value, bx.querySelector('#rMethod').value, bx.querySelector('#rFor').value);
+        UI.toast('已收款，' + UI.esc(c.name) + ' 欠款 → ' + UI.money(Store.customerBalance(Store.get(), c.id)), 'ok');
+        render();
+      }
+    });
+  }
+
+  function timeoutList() {
+    var s = Store.get();
+    var rows = s.prep.filter(function (p) { return p.status === 'notified'; }).map(function (p) {
+      var o = UI.order(s, p.order_id);
+      if (!o || Store.isTerminal(o.status)) return '';
+      var mins = Math.round((Date.now() - p.notified_at) / 60000);
+      var m = UI.merchant(s, p.merchant_id);
+      var ns = UI.notifyOf(s, o.id);
+      var got = ns.some(function (n) { return n.channel === 'poll' && n.status === 'acked'; });
+      return '<tr><td>' + o.order_no + '</td><td>' + UI.esc(m.name) + '</td><td class="n">' + mins + ' 分钟</td>' +
+        '<td>' + (got ? '<span class="badge green">常驻页已读</span>' : '<span class="badge red">未读 → 建议直接打电话</span>') + '</td>' +
+        '<td class="small muted">' + ns.map(function (n) { return chName(n.channel) + ':' + nStatus(n.status); }).join('，') + '</td></tr>';
+    }).join('');
+    UI.openDrawer({
+      title: '商家未确认清单',
+      body: rows ? '<table class="tbl"><tr><th>单号</th><th>商家</th><th class="n">等待</th><th>是否读到</th><th>各渠道结果</th></tr>' + rows + '</table>' +
+        '<div class="note" style="margin-top:12px">这就是把「商家端常驻页 + 提示音」当主路径的原因：推送（订阅消息）在没有额度时是<b>静默失败</b>的，只有落库的通知记录能解释它。</div>'
+        : '<div class="alert ok">当前没有超时未确认的商家。</div>',
+      foot: ''
+    });
+  }
+
+  function chName(c) {
+    return { poll: '常驻页轮询', subscribe: '订阅消息', sms: '短信', voice: '语音外呼', group_msg: '微信群卡片', manual: '人工电话' }[c] || c;
+  }
+  function nStatus(v) {
+    return { queued: '待发送', sent_ok: '已送达', acked: '已读', failed: '失败', no_quota: '无订阅额度', sig_pending: '短信签名未报备', '43101_user_refused': '用户拒绝授权' }[v] || v;
+  }
+  function typeName(t) { return { charge: '挂账', payment: '收款', adjust: '冲正', waive: '减免', refund: '退款' }[t] || t; }
+  function typeColor(t) { return { charge: 'amber', payment: 'green', adjust: 'violet', waive: 'blue', refund: 'red' }[t] || 'slate'; }
+
+  UI.onData(render);
+  render();
+})();
+</script>
+</body>
+</html>

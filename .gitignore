@@ -1,0 +1,31 @@
+# 本机工具与运行时（不提交）
+.tools/
+data/
+docker/backups/
+backend/data/
+**/uploads/
+paotui-test-report/
+
+# 构建产物
+backend/target/
+frontend/node_modules/
+frontend/dist/
+
+# 日志与临时
+*.log
+*.tmp
+C:\Users\Fengx\AppData\Local\Temp\opencode/
+
+# IDE / agent 工具产物
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+.chk/
+.trae/
+.trae-html-share-packages/
+.workbuddy/
+
+# Office 临时锁文件
+~$*

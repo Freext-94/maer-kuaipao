@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>月结对账单 · 同城跑腿原型</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var qs = (location.search.match(/[?&]c=([^&]+)/) || [])[1];
+  var pickC = qs || 'C1';
+  var pickM = Store.currentMonth();
+  var openBill = null;
+
+  UI.page({
+    title: '月结对账单',
+    active: 'bill',
+    sub: '赊账模式唯一的收款武器：一张客户能自己核对、能确认、能付款的单子',
+    actions: '<a class="btn" href="ledger.html">← 回台账</a>',
+    body: '<div class="wrap"><div id="vbar"></div>' +
+      '<div style="display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start">' +
+      '<div class="stack"><div class="panel"><div class="hd"><h2>生成对账单</h2></div><div class="bd">' +
+      '<div class="field"><label class="fl">客户</label><select id="bCust"></select></div>' +
+      '<div class="field"><label class="fl">账期</label><select id="bMon"></select></div>' +
+      '<button class="btn pri" id="bGen" style="width:100%">生成对账单</button>' +
+      '<div class="small muted" style="margin-top:10px">对账单不新增账：全部数字由流水推导，所以生成即与台账一致；余额不平会在顶部红字报警。</div>' +
+      '</div></div>' +
+      '<div class="panel"><div class="hd"><h2>已生成</h2></div><div class="bd" style="padding:0"><div id="bList"></div></div></div>' +
+      '</div>' +
+      '<div id="preview"></div>' +
+      '</div></div>'
+  });
+
+  function months() {
+    var out = [], d = new Date();
+    for (var i = 0; i < 4; i++) {
+      out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+      d.setMonth(d.getMonth() - 1);
+    }
+    return out;
+  }
+
+  function render() {
+    var s = Store.get();
+    document.getElementById('vbar').innerHTML = UI.verifyBar();
+    var cs = document.getElementById('bCust'), ms = document.getElementById('bMon');
+    cs.innerHTML = s.customers.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === pickC ? ' selected' : '') + '>' + UI.esc(c.name) + '（欠 ' + UI.yuan(Store.customerBalance(s, c.id)) + '）</option>';
+    }).join('');
+    ms.innerHTML = months().map(function (m) {
+      return '<option value="' + m + '"' + (m === pickM ? ' selected' : '') + '>' + m + '</option>';
+    }).join('');
+    cs.onchange = function () { pickC = cs.value; };
+    ms.onchange = function () { pickM = ms.value; };
+
+    var bills = (s.bills || []).slice().sort(function (a, b) { return b.created_at - a.created_at; });
+    document.getElementById('bList').innerHTML = bills.length ? bills.map(function (b) {
+      var c = UI.customer(s, b.customer_id);
+      return '<div class="oc" data-b="' + b.id + '" style="border-radius:0;border:0;border-bottom:1px solid var(--line);border-left:3px solid ' +
+        (b.status === 'confirmed' ? '#22c55e' : b.status === 'disputed' ? '#ef4444' : '#f59e0b') + '">' +
+        '<div class="t"><b>' + UI.esc(c ? c.name : '?') + '</b><span class="no">' + b.period_month + '</span>' +
+        '<span class="right num strong">' + UI.money(b.closing_fen) + '</span></div>' +
+        '<div class="f"><span class="badge ' + ({ draft: 'slate', sent: 'amber', confirmed: 'green', disputed: 'red' }[b.status]) + '">' +
+        ({ draft: '草稿', sent: '已发出', confirmed: '客户已确认', disputed: '客户有异议' }[b.status]) + '</span>' +
+        '<span class="right small muted">' + b.rows.length + ' 笔流水</span></div></div>';
+    }).join('') : '<div class="muted small center" style="padding:16px">还没生成过</div>';
+    Array.prototype.forEach.call(document.querySelectorAll('#bList [data-b]'), function (el) {
+      el.addEventListener('click', function () { openBill = el.dataset.b; draw(); });
+    });
+
+    if (!openBill && bills.length) openBill = bills[0].id;
+    draw();
+  }
+
+  function draw() {
+    var s = Store.get();
+    var b = (s.bills || []).filter(function (x) { return x.id === openBill; })[0];
+    var box = document.getElementById('preview');
+    if (!b) {
+      box.innerHTML = '<div class="panel"><div class="bd center muted" style="padding:60px 20px">' +
+        '左边选客户和账期，点「生成对账单」。<br><span class="small">真实系统里这一步是：点"发给客户"→ 生成一个免登录只读链接 → 微信发出去 → 客户点开后能看到逐笔明细并确认。</span></div></div>';
+      return;
+    }
+    var c = UI.customer(s, b.customer_id);
+    var rows = b.rows.slice().sort(function (x, y) { return x.occurred_at - y.occurred_at; });
+    var body = rows.map(function (e) {
+      var o = e.order_id ? UI.order(s, e.order_id) : null;
+      var goods = o ? (o.goods_real_fen != null ? o.goods_real_fen : o.goods_est_fen) : 0;
+      var fee = o ? o.service_fee_fen : 0;
+      var amt = e.type === 'payment' ? e.amount_fen : (e.type === 'charge' ? goods + fee : e.amount_fen);
+      return '<tr><td class="small nowrap">' + new Date(e.occurred_at).toLocaleDateString('zh-CN') + '</td>' +
+        '<td class="small">' + (o ? o.order_no : '—') + '</td>' +
+        '<td class="small">' + UI.esc(o ? o.items[0].text : e.note) + '</td>' +
+        '<td class="n small">' + (e.type === 'charge' || e.type === 'adjust' ? UI.money(goods) : '') + '</td>' +
+        '<td class="n small">' + (e.type === 'charge' ? UI.money(fee) : (e.type === 'adjust' ? UI.money(e.amount_fen) : '')) + '</td>' +
+        '<td class="n small" style="color:' + (amt < 0 ? 'var(--ok)' : 'var(--danger)') + '">' + (amt > 0 ? UI.money(amt) : UI.money(amt)) + '</td>' +
+        '<td class="n small">' + (o ? '<a href="dispatch.html" title="看小票与轨迹">📎</a>' : '') + '</td></tr>';
+    }).join('');
+
+    box.innerHTML = '<div class="panel"><div class="hd"><h2>客户看到的模样（只读长图预览）</h2>' +
+      '<div class="right row"><span class="badge slate">链接免登录 · 7 天有效</span>' +
+      '<button class="btn sm" id="printBtn">打印 / 存长图</button></div></div>' +
+      '<div class="bd" style="background:#f8fafc"><div style="max-width:430px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden">' +
+      '<div style="background:var(--brand);color:#fff;padding:16px 18px"><b style="font-size:16px">' + b.period_month + ' 跑腿费用对账单</b>' +
+      '<div style="font-size:12px;opacity:.9;margin-top:2px">致 ' + UI.esc(c.name) + '（' + UI.esc(c.phone) + '）· 每月 ' + c.settle_day + ' 号结算</div></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;background:#f0fdfa;border-bottom:1px solid var(--line)">' +
+      cell('上期欠款', UI.money(b.opening_fen)) + cell('本期新增应收', UI.money(b.charged_fen)) +
+      cell('本期已付', UI.money(b.paid_fen)) + cell('<b>本期应还</b>', '<span style="color:var(--danger)">' + UI.money(b.closing_fen) + '</span>') +
+      '</div><div style="padding:12px 14px">' +
+      '<table class="tbl" style="font-size:12px"><tr><th>日期</th><th>单号</th><th>内容</th><th class="n">货款</th><th class="n">跑腿费/调整</th><th class="n">金额</th><th></th></tr>' +
+      (body || '<tr><td colspan="7" class="center muted small">本期无流水</td></tr>') + '</table>' +
+      '<div class="row small muted" style="margin-top:10px;justify-content:space-between">' +
+      '<span>货款按商家小票实付记账，📎 可点开看小票照片</span><span>合计应还 <b style="color:var(--danger)">' + UI.money(b.closing_fen) + '</b></span></div>' +
+      '</div>' +
+      '<div style="padding:12px 14px;border-top:1px dashed var(--line)">' +
+      (b.status === 'confirmed'
+        ? '<div class="alert ok small">客户已于 ' + new Date(b.confirmed_at).toLocaleString('zh-CN', { hour12: false }) + ' 点「我确认无误」——这条记录就是催款证据。</div>'
+        : '<button class="mbtn" id="okBtn">我确认无误</button>' +
+        '<button class="mbtn alt" id="disBtn">有异议（需人工核）</button>') +
+      '<button class="mbtn" id="payBtn" style="margin-top:8px">去付款 ' + UI.money(b.closing_fen) + '</button>' +
+      '<div class="small muted center" style="margin-top:8px">Track A：显示收款说明，客户上传转账截图由老板审核入账<br>Track B（有个体户后）：直接拉起微信支付，<b>客户主动发起，不做自动扣款</b></div>' +
+      '</div></div></div></div>';
+
+    var okb = document.getElementById('okBtn');
+    if (okb) okb.addEventListener('click', function () {
+      Store.confirmBill(b.id);
+      UI.toast('客户已确认（真实系统里这条会连 openid/时间/IP 一起留证）', 'ok');
+      render();
+    });
+    var db = document.getElementById('disBtn');
+    if (db) db.addEventListener('click', function () {
+      UI.modal({
+        title: '客户提出异议',
+        body: '<div class="field"><label class="fl">哪张单、多少钱有异议</label><input id="dO" placeholder="单号"></div>' +
+          '<div class="field"><label class="fl">争议金额（元）</label><input id="dA" value="20" inputmode="decimal"></div>' +
+          '<div class="field"><label class="fl">说明</label><input id="dT" placeholder="例：西瓜称重偏高"></div>',
+        okText: '记为争议挂账',
+        onOk: function (bx) {
+          var st = Store.get();
+          var want = bx.querySelector('#dO').value.trim();
+          var o = st.orders.filter(function (x) { return x.order_no === want || x.id === want; })[0];
+          if (!o) throw new Error('找不到该单号');
+          Store.openDispute(o.id, bx.querySelector('#dA').value, bx.querySelector('#dT').value);
+          b.status = 'disputed';
+          Store.commit(Store.get());
+          UI.toast('已记争议：争议额不进催收、不阻塞其他款项确认');
+          render();
+        }
+      });
+    });
+    var pb = document.getElementById('payBtn');
+    if (pb) pb.addEventListener('click', function () {
+      UI.modal({
+        title: '客户付款（演示）',
+        body: '<div class="note" style="margin-bottom:12px">Track A 的现实做法：客户截图转账 → 老板在台账点「登记收款」。<br>Track B：这里变成微信支付 JSAPI，一次点击直接收款并自动核销。</div>' +
+          '<div class="grid2"><div class="field"><label class="fl">付款金额（元）</label><input id="pA" value="' + UI.yuan(b.closing_fen) + '" inputmode="decimal"></div>' +
+          '<div class="field"><label class="fl">方式</label><select id="pM"><option>微信收款码</option><option>现金</option></select></div></div>' +
+          '<div class="field"><label class="row"><input type="checkbox" id="pShot" checked> 客户已上传转账截图（模拟）</label></div>',
+        okText: '老板审核通过并入账',
+        onOk: function (bx) {
+          if (!bx.querySelector('#pShot').checked) throw new Error('未留凭证，先让客户上传截图');
+          Store.receivePayment(b.customer_id, bx.querySelector('#pA').value, '对账单 ' + b.period_month + ' 收款');
+          UI.toast('已收款并 FIFO 核销，欠款 → ' + UI.money(Store.customerBalance(Store.get(), b.customer_id)), 'ok');
+          render();
+        }
+      });
+    });
+    var pt = document.getElementById('printBtn');
+    if (pt) pt.addEventListener('click', function () { UI.toast('真实系统：服务端渲染成 PNG 长图 + 微信小程序码，直接甩到客户微信'); });
+
+    function cell(k, v) {
+      return '<div style="padding:10px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)">' +
+        '<div class="small muted">' + k + '</div><div class="num" style="font-size:16px;font-weight:650">' + v + '</div></div>';
+    }
+  }
+
+  document.getElementById('bGen').addEventListener('click', function () {
+    try {
+      Store.buildBill(pickC, pickM);
+      var s = Store.get();
+      openBill = s.bills.filter(function (b) { return b.customer_id === pickC && b.period_month === pickM; })[0].id;
+      UI.toast('已生成 ' + pickM + ' 对账单', 'ok');
+      render();
+    } catch (e) { UI.err(e); }
+  });
+
+  UI.onData(render);
+  render();
+})();
+</script>
+</body>
+</html>

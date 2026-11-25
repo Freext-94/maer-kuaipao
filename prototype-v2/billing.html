@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>账单 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .bill-filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .bill-filters::-webkit-scrollbar { display: none; }
+  .bill-filters .chip { flex: 0 0 auto; }
+  .bill-filters input[type="month"] {
+    flex: 0 0 auto;
+    width: 148px;
+    min-height: var(--tap);
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12.5px;
+  }
+  .kpi-grid.three .kpi .v { font-size: 19px; }
+  .kpi-grid.three .kpi .k,
+  .kpi-grid.three .kpi .f { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-grid.three .kpi .f { font-size: 10px; }
+  .bill-card-head { display: flex; align-items: center; gap: 8px; }
+  .bill-card-head b { font-size: 14px; }
+  .bill-sub { margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+  .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bill-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; margin-top: 9px; }
+  .bill-grid .cell { min-width: 0; padding: 6px 8px; border-radius: 10px; background: #FDFBF6; }
+  .bill-grid .cell .k { font-size: 10.5px; color: var(--muted); }
+  .bill-grid .cell .v { font-size: 13px; font-weight: 750; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bill-grid .cell.hot { background: var(--brand-soft); }
+  .bill-total { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+  .bill-total b { font-size: 14px; }
+  .bill-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .pay-row { align-items: flex-start; }
+  .pay-row .amt { flex: 0 0 auto; text-align: right; font-weight: 750; color: var(--brand-ink); white-space: nowrap; }
+  .pay-list .list-row { padding-left: 14px; padding-right: 14px; }
+  .debt-row { color: inherit; text-decoration: none; }
+  .debt-row:active { background: #FBF8F1; }
+</style>
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script src="assets/bill-image.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  function monthKey() {
+    try {
+      var m = /^(\d{4})年(\d{1,2})月$/.exec(Store.periodRange('month').label);
+      if (m) return m[1] + '-' + (Number(m[2]) < 10 ? '0' : '') + Number(m[2]);
+    } catch (e) { /* ignore */ }
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1);
+  }
+
+  var state = { kind: 'today', value: monthKey() };
+
+  var screen = UI.adminPage({
+    active: 'billing',
+    title: '账单',
+    sub: '订单明细 · 收款流水 · 账单图片',
+    perm: 'bill.view',
+    body:
+      '<div class="kpi-grid three" id="kpis"></div>' +
+      '<div class="card flat" style="padding:8px 10px;margin-bottom:14px">' +
+        '<div class="bill-filters" id="filters">' +
+          '<button type="button" class="chip on" data-range="today">今天</button>' +
+          '<button type="button" class="chip" data-range="yesterday">昨天</button>' +
+          '<button type="button" class="chip" data-range="month">本月</button>' +
+          '<input type="month" id="monthPick" aria-label="选择年月">' +
+        '</div>' +
+      '</div>' +
+      '<div class="section" id="ordersSec"></div>' +
+      '<div class="section" id="paymentsSec"></div>' +
+      '<div class="section" id="debtSec"></div>'
+  });
+  if (!screen) return;
+
+  function custInfo(o) {
+    var c = Store.customer(o.customerId);
+    var u = c ? Store.user(c.userId) : null;
+    var addr = o.address || {};
+    return {
+      name: (u && u.name) || addr.contactName || '客户',
+      phone: (u && u.phone) || addr.phone || ''
+    };
+  }
+
+  function discountText(fen) {
+    return Number(fen || 0) > 0 ? '-' + UI.money(fen) : UI.money(0);
+  }
+
+  function cell(k, v, hot) {
+    return '<div class="cell' + (hot ? ' hot' : '') + '">' +
+      '<div class="k">' + UI.esc(k) + '</div>' +
+      '<div class="v">' + UI.esc(v) + '</div></div>';
+  }
+
+  function renderKpis() {
+    var b = Store.billingSummary();
+    document.getElementById('kpis').innerHTML =
+      '<div class="kpi"><div class="k">今天跑腿费</div><div class="v">' + UI.money(b.todayServiceFeeFen) + '</div><div class="f">按结单时间 · 北京时间</div></div>' +
+      '<div class="kpi"><div class="k">昨天跑腿费</div><div class="v">' + UI.money(b.yesterdayServiceFeeFen) + '</div><div class="f">不受下方筛选影响</div></div>' +
+      '<div class="kpi brand"><div class="k">账单合计</div><div class="v">' + UI.money(b.totalBillFen) + '</div><div class="f">全部客户未收</div></div>';
+  }
+
+  function orderCard(o) {
+    var c = custInfo(o);
+    var owed = Store.owedOf(o);
+    var groups = Store.groupsOf(o);
+    return '<div class="order-card">' +
+      '<div class="bill-card-head"><b class="num">' + UI.esc(o.no) + '</b>' +
+        '<span class="right"><span class="badge ' + UI.esc(Store.statusColor(o)) + '">' + UI.esc(Store.statusLabel(o)) + '</span></span></div>' +
+      '<div class="bill-sub ell">结单 ' + UI.esc(UI.fmtDate(o.finishedAt || o.createdAt)) +
+        ' · ' + UI.esc(c.name) + (c.phone ? ' · ' + UI.esc(c.phone) : '') +
+        (groups.length > 1 ? ' · ' + groups.length + ' 个商家' : '') + '</div>' +
+      '<div class="bill-grid">' +
+        cell('货款', UI.money(Store.orderGoodsFen(o))) +
+        cell('跑腿费', UI.money(o.serviceFeeFen)) +
+        cell('附加费', UI.money(o.extraFeeFen)) +
+        cell('优惠', discountText(o.discountFen)) +
+        cell('应收', UI.money(Store.receivable(o))) +
+        cell('已收', UI.money(Store.paidOf(o.id))) +
+        cell('未收', UI.money(owed), owed > 0) +
+      '</div>' +
+      (window.BillImage ? '<div class="bill-actions"><button type="button" class="btn sm" data-bill="' + o.id + '">生成账单图片</button></div>' : '') +
+      '</div>';
+  }
+
+  function totalsCard(t) {
+    return '<div class="card flat">' +
+      '<div class="bill-total"><b>合计 · ' + t.orderCount + ' 单</b>' +
+        '<span class="right small muted">应收 ' + UI.money(t.receivableFen) + ' · 未收 ' + UI.money(t.owedFen) + '</span></div>' +
+      '<div class="bill-grid">' +
+        cell('货款', UI.money(t.goodsFen)) +
+        cell('跑腿费', UI.money(t.serviceFeeFen)) +
+        cell('附加费', UI.money(t.extraFeeFen)) +
+        cell('优惠', discountText(t.discountFen)) +
+        cell('应收', UI.money(t.receivableFen)) +
+        cell('已收', UI.money(t.paidFen)) +
+        cell('未收', UI.money(t.owedFen), t.owedFen > 0) +
+        cell('流水', UI.money(t.paymentFen)) +
+      '</div>' +
+      '<div class="small muted" style="margin-top:8px">流水 ' + t.paymentCount + ' 笔 · 已收为这些订单累计实收；未收 = 应收 - 已收</div>' +
+      '</div>';
+  }
+
+  function payRow(e) {
+    var c = Store.customer(e.customerId);
+    var u = c ? Store.user(c.userId) : null;
+    var o = e.orderId ? Store.order(e.orderId) : null;
+    var name = (u && u.name) || (o && o.address && o.address.contactName) || '客户';
+    var method = Store.METHOD_LABELS[e.method] || e.method || '—';
+    var tone = e.method === 'cash' ? 'green' : (e.method === 'alipay' ? 'blue' : 'cyan');
+    var meta = [];
+    if (e.note) meta.push(e.note);
+    if (e.operator) meta.push('经办 ' + e.operator);
+    return '<div class="list-row pay-row">' +
+      '<div class="grow">' +
+        '<div class="row"><b class="small num">' + UI.esc(UI.fmtDate(e.at)) + '</b>' +
+          '<span class="badge ' + tone + '">' + UI.esc(method) + '</span></div>' +
+        '<div class="small ell" style="margin-top:2px">' + UI.esc(name) + ' · ' + UI.esc(o ? o.no : '未关联订单') + '</div>' +
+        (meta.length ? '<div class="small muted ell">' + UI.esc(meta.join(' · ')) + '</div>' : '') +
+      '</div>' +
+      '<div class="amt">+' + UI.money(Math.abs(Number(e.amountFen || 0))) + '</div>' +
+      '</div>';
+  }
+
+  function renderPeriod() {
+    var range;
+    try {
+      range = Store.periodRange(state.kind, state.value);
+    } catch (e) {
+      state.kind = 'today';
+      range = Store.periodRange('today');
+    }
+    var orders = Store.billingOrders(range.from, range.to);
+    var pays = Store.billingPayments(range.from, range.to);
+    var totals = Store.billingTotals(orders, pays);
+
+    document.getElementById('ordersSec').innerHTML =
+      '<div class="section-title">订单明细<span class="more">' + UI.esc(range.label) + ' · ' + orders.length + ' 单</span></div>' +
+      totalsCard(totals) +
+      (orders.length
+        ? orders.map(orderCard).join('')
+        : '<div class="card">' + UI.empty('assets/brand/empty-bills.svg', '这个区间没有已结单', '换个时间范围看看，或先去结单') + '</div>') +
+      (orders.length ? totalsCard(totals) : '');
+
+    document.getElementById('paymentsSec').innerHTML =
+      '<div class="section-title">收款流水<span class="more">' + UI.esc(range.label) + ' · ' + pays.length + ' 笔</span></div>' +
+      '<div class="card flat pad0 pay-list">' +
+        (pays.length
+          ? pays.map(payRow).join('') +
+            '<div class="list-row"><span class="small muted">流水合计</span><b class="right num">+' + UI.money(totals.paymentFen) + '</b></div>'
+          : UI.empty('assets/brand/empty-bills.svg', '这个区间没有收款流水', '结单收款或登记还款后会出现在这里')) +
+      '</div>';
+  }
+
+  function renderDebt() {
+    var collected = Store.collectedTotalFen();
+    var total = Store.billingSummary().totalBillFen;
+    var top = Store.debtCustomers().filter(function (x) { return x.owedFen > 0; }).slice(0, 5);
+    var rows = top.map(function (x) {
+      var u = Store.user(x.customer.userId);
+      return '<a class="list-row debt-row" href="debts.html?customerId=' + x.customer.id + '">' +
+        '<div class="grow"><b>' + UI.esc(u ? u.name : '客户') + '</b>' +
+          '<div class="small muted ell">' + UI.esc(u ? u.phone : '') +
+            (x.customer.note ? ' · ' + UI.esc(x.customer.note) : '') + '</div></div>' +
+        '<b class="num" style="color:var(--brand-ink)">' + UI.money(x.owedFen) + '</b>' +
+        '</a>';
+    }).join('');
+
+    document.getElementById('debtSec').innerHTML =
+      '<div class="section-title">客户账单<span class="more">谁欠多少 · 登记还款</span></div>' +
+      '<div class="card flat">' +
+        '<div class="row" style="align-items:flex-end">' +
+          '<div><div class="small muted">累计收回</div><b class="money" style="font-size:20px">' + UI.money(collected) + '</b></div>' +
+          '<div class="right" style="text-align:right"><div class="small muted">账单合计</div><b class="money" style="font-size:16px">' + UI.money(total) + '</b></div>' +
+        '</div>' +
+        '<div class="divider"></div>' +
+        (rows
+          ? '<div class="row" style="margin-bottom:2px"><b class="small">欠款最多</b>' +
+            '<a class="right small" href="debts.html">全部客户 ›</a></div>' + rows
+          : '<div class="small muted">暂时没有客户欠款。</div>') +
+      '</div>';
+  }
+
+  function setRange(kind, value) {
+    state.kind = kind;
+    if (value) state.value = value;
+    Array.prototype.forEach.call(document.querySelectorAll('#filters [data-range]'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-range') === kind);
+    });
+    renderPeriod();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('#filters [data-range]'), function (b) {
+    b.addEventListener('click', function () { setRange(b.getAttribute('data-range'), null); });
+  });
+  var monthPick = document.getElementById('monthPick');
+  monthPick.value = state.value;
+  monthPick.addEventListener('change', function () {
+    if (!monthPick.value) return;
+    state.value = monthPick.value;
+    setRange('yearMonth', monthPick.value);
+  });
+
+  screen.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-bill]') : null;
+    if (btn && window.BillImage) {
+      window.BillImage.open(Number(btn.getAttribute('data-bill')));
+    }
+  });
+
+  renderKpis();
+  renderPeriod();
+  renderDebt();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>我的 / 设置 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* 我的 / 设置（页面专用） */
+  .profile { padding: 15px 14px; }
+  .avatar {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand);
+    color: var(--ink);
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chips .badge { font-size: 11px; }
+
+  .menu { padding: 0 14px; }
+  .menu-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 58px;
+    padding: 11px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .menu-row:last-child { border-bottom: 0; }
+  .menu-row:active { background: #FBF8F1; }
+  .menu-ico {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .menu-main { flex: 1; min-width: 0; }
+  .menu-main b { display: block; font-size: 13.5px; font-weight: 750; line-height: 1.35; }
+  .menu-main span {
+    display: block;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .menu-val {
+    flex: 0 0 auto;
+    max-width: 40%;
+    font-size: 11.5px;
+    color: var(--muted);
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chev { flex: 0 0 auto; color: #C9C4B8; font-size: 18px; line-height: 1; }
+
+  .acct-btns .btn + .btn { margin-top: 8px; }
+
+  .subhead { display: flex; align-items: center; gap: 10px; min-width: 0; margin-bottom: 12px; }
+  .subhead h2 { margin: 0; font-size: 17px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .backbtn {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--white);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .backbtn:active { background: #FBF8F1; }
+
+  .p-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .p-row:last-child { border-bottom: 0; }
+  .p-idx {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F1EDE3;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .p-txt {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .iconbtn {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--white);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .iconbtn:active { background: #FBF8F1; }
+  .iconbtn.del { color: var(--danger); border-color: #E7C4C1; }
+  .iconbtn[disabled] { opacity: .4; cursor: not-allowed; }
+
+  .svc { padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+  .svc:last-child { border-bottom: 0; }
+  .svc-hd { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .svc-hd > img {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--cream);
+    object-fit: contain;
+  }
+  .svc-name {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 750;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .svc-meta {
+    margin-top: 1px;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .svc-fee {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-top: 8px;
+  }
+  .svc-fee input { flex: 1; min-width: 0; }
+  .svc-fee .btn { flex: 0 0 auto; padding: 0 14px; }
+
+  .frow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px 8px;
+    min-width: 0;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #FDFBF6;
+  }
+  .frow .full { grid-column: 1 / -1; }
+  .frow .field { margin-bottom: 0; }
+  .frow .fl { margin-bottom: 4px; }
+  .frow input,
+  .frow select { padding: 9px 10px; }
+  .frow .switch { min-height: 44px; }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .icon-opt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 78px;
+    padding: 8px 4px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--white);
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.3;
+    text-align: center;
+    cursor: pointer;
+  }
+  .icon-opt img { width: 34px; height: 34px; object-fit: contain; }
+  .icon-opt.on {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--ink);
+    font-weight: 750;
+  }
+
+  .form-foot {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 0 4px;
+    background: var(--paper);
+  }
+  .form-foot .btn { flex: 1; }
+</style>
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var body = UI.adminPage({
+    active: 'me',
+    title: '我的 / 设置',
+    sub: '基础设置 · 常用词 · 服务类型 · 主数据',
+    perm: 'setting.view'
+  });
+  if (!body) return;
+
+  var canEdit = Store.can('setting.edit');
+  var view = 'home';
+
+  var ROLE_LABEL = { super_admin: '超级管理员', admin: '管理员', merchant: '商家', rider: '骑手', customer: '客户' };
+  var ROLE_BADGE = { super_admin: 'amber', admin: 'blue', merchant: 'green', rider: 'violet', customer: 'cyan' };
+  var WS_LABEL = { admin: '调度台', merchant: '商家工作台', rider: '骑手端', customer: '客户端' };
+  var FORM_KIND = { buy: '代买版式', route: '路线版式', driver: '代驾版式', blank: '空白版式' };
+  var FLOW_KIND = { buy: '代买流程', standard: '标准流程', scheduled: '预约流程' };
+  var TYPE_LABEL = {
+    text: '单行文本', textarea: '多行文本', number: '数字', phone: '手机号',
+    date: '日期', select: '单选', multiselect: '多选', switch: '开关'
+  };
+  var TYPE_OPTIONS = Object.keys(TYPE_LABEL).map(function (k) {
+    return '<option value="' + k + '">' + TYPE_LABEL[k] + '</option>';
+  }).join('');
+  var ICONS = [
+    ['service-buy.svg', '代买'],
+    ['service-pickup.svg', '取送'],
+    ['service-errand.svg', '代办'],
+    ['service-transfer.svg', '接送'],
+    ['service-driver.svg', '代驾']
+  ];
+
+  function esc(v) { return UI.esc(v); }
+  function fen(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^\d.-]/g, ''));
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  }
+  function todayMmdd() {
+    var d = new Date();
+    return String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+  }
+  function subHead(title, desc) {
+    return '<div class="subhead"><button type="button" class="backbtn" data-back="1">‹ 我的</button><h2>' + esc(title) + '</h2></div>' +
+      (desc ? '<div class="alert info small" style="margin-bottom:12px">' + desc + '</div>' : '');
+  }
+  function roAttr() { return canEdit ? '' : ' disabled'; }
+  function readOnlyAlert() {
+    return canEdit ? '' : '<div class="alert info small" style="margin-bottom:12px">当前账号只能查看，不能修改。需要管理员授予 <code>setting.edit</code> 权限。</div>';
+  }
+
+  function render() {
+    if (view === 'basic') return renderBasic();
+    if (view === 'phrases') return renderPhrases();
+    if (view === 'services') return renderServices();
+    if (view === 'svcNew') return renderSvcNew();
+    if (view === 'categories') return renderCategories();
+    if (view === 'fields') return renderFields();
+    return renderHome();
+  }
+
+  function bindBack() {
+    var b = body.querySelector('[data-back]');
+    if (b) b.addEventListener('click', function () { view = 'home'; render(); });
+  }
+
+  /* ---------- 我的 ---------- */
+  function menuRow(key, ico, title, sub, val) {
+    return '<button type="button" class="menu-row" data-go="' + key + '">' +
+      '<span class="menu-ico">' + ico + '</span>' +
+      '<span class="menu-main"><b>' + esc(title) + '</b><span>' + sub + '</span></span>' +
+      (val ? '<span class="menu-val">' + esc(val) + '</span>' : '') +
+      '<span class="chev">›</span></button>';
+  }
+
+  function renderHome() {
+    var sess = Store.session();
+    var me = Store.me();
+    var sets = Store.settings();
+    var types = Store.serviceTypes();
+    var phrases = sets.quickPhrases || [];
+    var cats = Store.categories();
+    var fields = Store.merchantFields();
+    var wsName = WS_LABEL[sess.type] || sess.type;
+    if (sess.type === 'merchant' && sess.merchantId) {
+      var m = Store.merchant(sess.merchantId);
+      if (m) wsName = m.name;
+    }
+    var enabledCount = types.filter(function (t) { return t.enabled; }).length;
+    var roleHtml = (me.roles || []).map(function (r) {
+      var label = ROLE_LABEL[r.role] || r.role;
+      if (r.role === 'merchant' && r.merchantId) {
+        var mm = Store.merchant(r.merchantId);
+        if (mm) label += ' · ' + mm.name;
+      }
+      return '<span class="badge ' + (ROLE_BADGE[r.role] || 'slate') + '">' + esc(label) + '</span>';
+    }).join('');
+
+    body.innerHTML =
+      '<div class="card profile">' +
+        '<div class="row">' +
+          '<div class="avatar">' + esc(String(me.name || '?').slice(0, 1)) + '</div>' +
+          '<div class="grow" style="min-width:0">' +
+            '<b style="font-size:16px">' + esc(me.name) + '</b>' +
+            '<div class="small muted num">' + esc(me.phone || '未填手机号') + '</div>' +
+            '<div class="chips">' + roleHtml + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="divider"></div>' +
+        '<div class="row"><span class="small muted">当前工作区</span><b class="grow right">' + esc(wsName) + '</b></div>' +
+      '</div>' +
+
+      '<div class="section-title" style="margin-top:16px">设置与主数据</div>' +
+      '<div class="card pad0 menu">' +
+        menuRow('basic', '基', '基础设置', '单号前缀 · 默认跑腿费', sets.orderPrefix + ' / ' + UI.money(sets.defaultServiceFeeFen)) +
+        menuRow('phrases', '词', '常用词', '录单时一点就填', phrases.length + ' 个') +
+        menuRow('services', '服', '服务类型', '启停 · 默认费 · 新增', types.length + ' 个（启用 ' + enabledCount + '）') +
+        menuRow('categories', '类', '商家类目', '商家可多选', cats.length + ' 个') +
+        menuRow('fields', '字', '商家自定义字段', '新建商家表单里出现', fields.length + ' 个') +
+      '</div>' +
+
+      '<div class="section-title" style="margin-top:16px">品牌</div>' +
+      '<div class="card pad0 menu">' +
+        '<a class="menu-row" href="brand.html">' +
+          '<span class="menu-ico">品</span>' +
+          '<span class="menu-main"><b>品牌素材</b><span>固定文件名 · 同名替换 · 不改代码</span></span>' +
+          '<span class="chev">›</span>' +
+        '</a>' +
+      '</div>' +
+
+      '<div class="section-title" style="margin-top:16px">账号</div>' +
+      '<div class="card acct-btns">' +
+        '<button type="button" class="btn block" id="switchWs">切换工作区</button>' +
+        '<button type="button" class="btn block" id="logoutBtn">退出登录</button>' +
+        '<button type="button" class="btn danger block" id="resetBtn">重置演示数据</button>' +
+      '</div>' +
+
+      '<div class="card" style="margin-top:10px">' +
+        '<div class="strong small" style="margin-bottom:4px">原型说明</div>' +
+        '<div class="small muted">没有后端，数据只存在本机浏览器 localStorage。设置保存后，录单页与客户端下单会立即读取新值；重置演示数据会恢复初始种子数据。</div>' +
+      '</div>';
+
+    body.querySelectorAll('[data-go]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        view = el.getAttribute('data-go');
+        render();
+        window.scrollTo(0, 0);
+      });
+    });
+    document.getElementById('switchWs').addEventListener('click', function () { UI.switchWorkspace(); });
+    document.getElementById('logoutBtn').addEventListener('click', function () { UI.logout(); });
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      if (!confirm('重置后所有演示订单、账单、用户和设置都回到初始状态，确定吗？')) return;
+      try { Store.reset(); } catch (e) { UI.err(e); return; }
+      location.href = 'index.html';
+    });
+  }
+
+  /* ---------- 基础设置 ---------- */
+  function renderBasic() {
+    var sets = Store.settings();
+    var prefix = sets.orderPrefix || 'MR';
+    body.innerHTML = subHead('基础设置') +
+      readOnlyAlert() +
+      '<div class="card">' +
+        '<div class="field">' +
+          '<label class="fl">单号前缀（2–4 位大写字母/数字）</label>' +
+          '<input id="prefix" maxlength="4" value="' + esc(prefix) + '" autocomplete="off"' + roAttr() + '>' +
+          '<div class="hint">预览：<code id="prefixPreview">' + esc(prefix + todayMmdd() + '-8K2M') + '</code>。只影响新单，历史订单号不变。</div>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="fl">默认跑腿费（元）</label>' +
+          '<input id="defaultFee" inputmode="decimal" value="' + UI.yuan(sets.defaultServiceFeeFen) + '"' + roAttr() + '>' +
+          '<div class="hint">电话录单和客户端下单的预填值；每单仍可手改。</div>' +
+        '</div>' +
+        '<button type="button" class="btn pri block" id="saveBasic"' + roAttr() + '>保存设置</button>' +
+      '</div>';
+    bindBack();
+
+    var prefixEl = document.getElementById('prefix');
+    if (!prefixEl) return;
+    prefixEl.addEventListener('input', function () {
+      var v = prefixEl.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      prefixEl.value = v;
+      document.getElementById('prefixPreview').textContent = (v || 'MR') + todayMmdd() + '-8K2M';
+    });
+
+    document.getElementById('saveBasic').addEventListener('click', function () {
+      if (!canEdit) return;
+      var p = prefixEl.value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{2,4}$/.test(p)) { UI.toast('前缀要 2–4 位大写字母或数字', 'err'); return; }
+      var fee = fen(document.getElementById('defaultFee').value);
+      if (fee < 0) { UI.toast('默认跑腿费不能为负', 'err'); return; }
+      try {
+        Store.saveSettings({ orderPrefix: p, defaultServiceFeeFen: fee });
+        UI.toast('已保存；单号前缀只影响新单', 'ok');
+        renderBasic();
+      } catch (e) { UI.err(e); }
+    });
+  }
+
+  /* ---------- 常用词 ---------- */
+  function renderPhrases() {
+    var list = (Store.settings().quickPhrases || []).slice().sort(function (a, b) { return a.sort - b.sort; });
+    body.innerHTML = subHead('常用词', '录单时点一下就能填；前 5 个会出现在录单页。') +
+      '<div class="card">' +
+        (canEdit
+          ? '<div class="row" style="margin-bottom:10px"><input id="newPhrase" class="grow" placeholder="例：矿泉水一箱"><button type="button" class="btn pri" id="addPhrase">添加</button></div>'
+          : readOnlyAlert()) +
+        (list.length
+          ? list.map(function (p, i) {
+            return '<div class="p-row">' +
+              '<span class="p-idx">' + (i + 1) + '</span>' +
+              '<span class="p-txt" title="' + esc(p.text) + '">' + esc(p.text) + '</span>' +
+              '<button type="button" class="iconbtn" data-up="' + p.id + '" aria-label="上移"' + roAttr() + '>↑</button>' +
+              '<button type="button" class="iconbtn" data-down="' + p.id + '" aria-label="下移"' + roAttr() + '>↓</button>' +
+              '<button type="button" class="iconbtn del" data-del="' + p.id + '" aria-label="删除"' + roAttr() + '>×</button>' +
+            '</div>';
+          }).join('')
+          : '<div class="small muted" style="padding:8px 0">还没有常用词，先加一个。</div>') +
+      '</div>';
+    bindBack();
+
+    var addBtn = document.getElementById('addPhrase');
+    if (addBtn) addBtn.addEventListener('click', function () {
+      var input = document.getElementById('newPhrase');
+      try {
+        Store.addQuickPhrase(input.value);
+        UI.toast('已添加', 'ok');
+        renderPhrases();
+      } catch (e) { UI.err(e); }
+    });
+    var newInput = document.getElementById('newPhrase');
+    if (newInput) newInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); if (addBtn) addBtn.click(); }
+    });
+
+    body.querySelectorAll('[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () { Store.removeQuickPhrase(b.getAttribute('data-del')); renderPhrases(); });
+    });
+    body.querySelectorAll('[data-up]').forEach(function (b) {
+      b.addEventListener('click', function () { Store.moveQuickPhrase(b.getAttribute('data-up'), -1); renderPhrases(); });
+    });
+    body.querySelectorAll('[data-down]').forEach(function (b) {
+      b.addEventListener('click', function () { Store.moveQuickPhrase(b.getAttribute('data-down'), 1); renderPhrases(); });
+    });
+  }
+
+  /* ---------- 服务类型 ---------- */
+  function renderServices() {
+    var types = Store.serviceTypes();
+    body.innerHTML = subHead('服务类型', '启停和默认费立即生效；新增后管理端录单与客户端下单立即可见。') +
+      (canEdit ? '<button type="button" class="btn pri block" id="newSvc" style="margin-bottom:12px">＋ 新增服务类型</button>' : readOnlyAlert()) +
+      '<div class="card">' +
+        types.map(function (t) {
+          return '<div class="svc">' +
+            '<div class="svc-hd">' +
+              '<img src="' + esc(t.icon) + '" alt="">' +
+              '<div class="grow" style="min-width:0">' +
+                '<b class="svc-name">' + esc(t.name) + '</b>' +
+                '<div class="svc-meta">' + esc(t.code) + ' · ' + esc(FORM_KIND[t.formKind] || t.formKind) + ' · ' + esc(FLOW_KIND[t.flowKind] || t.flowKind) + '</div>' +
+              '</div>' +
+              '<label class="switch"><input type="checkbox" data-en="' + esc(t.code) + '"' + (t.enabled ? ' checked' : '') + roAttr() + '></label>' +
+            '</div>' +
+            (t.desc ? '<div class="small muted" style="margin-top:5px">' + esc(t.desc) + '</div>' : '') +
+            '<div class="svc-fee">' +
+              '<span class="small muted nowrap">默认费</span>' +
+              '<input data-fee="' + esc(t.code) + '" inputmode="decimal" value="' + UI.yuan(t.defaultFeeFen) + '"' + roAttr() + '>' +
+              '<span class="small muted">元</span>' +
+              (canEdit ? '<button type="button" class="btn" data-fee-save="' + esc(t.code) + '">保存</button>' : '') +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    bindBack();
+
+    var newBtn = document.getElementById('newSvc');
+    if (newBtn) newBtn.addEventListener('click', function () { view = 'svcNew'; render(); window.scrollTo(0, 0); });
+
+    body.querySelectorAll('[data-en]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (!canEdit) return;
+        try {
+          Store.saveServiceType({ code: cb.getAttribute('data-en'), enabled: cb.checked });
+          UI.toast(cb.checked ? '已启用' : '已停用', 'ok');
+          renderServices();
+        } catch (e) { UI.err(e); }
+      });
+    });
+    body.querySelectorAll('[data-fee-save]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var code = b.getAttribute('data-fee-save');
+        var input = body.querySelector('[data-fee="' + code + '"]');
+        var fee = fen(input.value);
+        if (fee < 0) { UI.toast('默认费不能为负', 'err'); return; }
+        try {
+          Store.saveServiceType({ code: code, defaultFeeFen: fee });
+          UI.toast('已保存默认费', 'ok');
+          renderServices();
+        } catch (e) { UI.err(e); }
+      });
+    });
+  }
+
+  function renderSvcNew() {
+    var defFee = UI.yuan(Store.settings().defaultServiceFeeFen);
+    body.innerHTML = subHead('新增服务类型') +
+      '<div class="card">' +
+        '<div class="field"><label class="fl req">名称</label><input id="svcName" placeholder="例：宠物接送"></div>' +
+        '<div class="field"><label class="fl req">code（英文/下划线）</label><input id="svcCode" placeholder="pet_transfer" autocapitalize="off" autocomplete="off">' +
+          '<div class="hint">小写英文，字母开头，可含数字和下划线；创建后不再修改。</div></div>' +
+        '<div class="field"><label class="fl">默认费（元）</label><input id="svcFee" inputmode="decimal" value="' + defFee + '"></div>' +
+        '<div class="field"><label class="fl">表单版式</label><select id="svcForm">' +
+          '<option value="route">路线版式（起点 / 终点）</option>' +
+          '<option value="buy">代买版式（商家 + 物品）</option>' +
+          '<option value="driver">代驾版式（车牌 / 车型）</option>' +
+          '<option value="blank">空白版式（只填备注）</option>' +
+        '</select></div>' +
+        '<div class="field"><label class="fl">流程类型</label><select id="svcFlow">' +
+          '<option value="standard">标准流程（派单 → 取 → 送 → 结单）</option>' +
+          '<option value="scheduled">预约流程（先约时间）</option>' +
+          '<option value="buy">代买流程（垫付货款）</option>' +
+        '</select></div>' +
+        '<div class="field"><label class="fl">一句话说明</label><input id="svcDesc" placeholder="例：宠物上门接送，按次计费"></div>' +
+        '<div class="field">' +
+          '<label class="fl">图标</label>' +
+          '<div class="icon-grid" id="iconGrid">' +
+            ICONS.map(function (x, i) {
+              return '<button type="button" class="icon-opt' + (i === 0 ? ' on' : '') + '" data-icon="' + x[0] + '">' +
+                '<img src="assets/brand/' + x[0] + '" alt=""><span>' + x[1] + '</span></button>';
+            }).join('') +
+          '</div>' +
+          '<div class="hint">选一个内置图标，或在下面填写文件名（模拟上传）。</div>' +
+          '<input id="iconCustom" placeholder="例：service-pet.svg" style="margin-top:8px" autocapitalize="off" autocomplete="off">' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section-title" style="margin-top:6px">额外表单字段 <span class="more">可增删</span></div>' +
+      '<div class="card" id="fieldCard">' +
+        '<div id="fieldList"></div>' +
+        '<button type="button" class="btn ghost block" id="addField">＋ 添加字段</button>' +
+        '<div class="hint">支持 text / textarea / number / phone / date / select / multiselect / switch 八种类型；单选和多选需填写选项。</div>' +
+      '</div>' +
+
+      '<div class="form-foot">' +
+        '<button type="button" class="btn" id="svcCancel">取消</button>' +
+        '<button type="button" class="btn pri" id="svcSave">保存服务类型</button>' +
+      '</div>';
+    bindBack();
+
+    var iconGrid = document.getElementById('iconGrid');
+    var customInput = document.getElementById('iconCustom');
+    iconGrid.querySelectorAll('[data-icon]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        iconGrid.querySelectorAll('.icon-opt').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        customInput.value = '';
+      });
+    });
+    customInput.addEventListener('input', function () {
+      if (customInput.value.trim()) {
+        iconGrid.querySelectorAll('.icon-opt').forEach(function (x) { x.classList.remove('on'); });
+      } else {
+        iconGrid.querySelectorAll('.icon-opt')[0].classList.add('on');
+      }
+    });
+
+    document.getElementById('addField').addEventListener('click', function () { addFieldRow(null); });
+    document.getElementById('svcCancel').addEventListener('click', function () { view = 'services'; render(); window.scrollTo(0, 0); });
+    document.getElementById('svcSave').addEventListener('click', saveNewService);
+  }
+
+  function addFieldRow(data) {
+    data = data || {};
+    var wrap = document.getElementById('fieldList');
+    if (!wrap) return;
+    var div = document.createElement('div');
+    div.className = 'frow';
+    div.innerHTML =
+      '<div class="field"><label class="fl">key</label><input class="f-key" placeholder="petName" value="' + esc(data.key || '') + '" autocapitalize="off" autocomplete="off"></div>' +
+      '<div class="field"><label class="fl">名称</label><input class="f-label" placeholder="宠物名字" value="' + esc(data.label || '') + '"></div>' +
+      '<div class="field"><label class="fl">类型</label><select class="f-type">' + TYPE_OPTIONS + '</select></div>' +
+      '<div class="field"><label class="fl">必填</label><label class="switch"><input type="checkbox" class="f-req"' + (data.required ? ' checked' : '') + '><span class="small">必填</span></label></div>' +
+      '<div class="field full f-opts hide"><label class="fl">选项（逗号分隔）</label><input class="f-options" placeholder="小型,中型,大型" value="' + esc((data.options || []).join(',')) + '"></div>' +
+      '<div class="full"><button type="button" class="btn danger block f-del">删除这个字段</button></div>';
+    wrap.appendChild(div);
+
+    var typeSel = div.querySelector('.f-type');
+    if (data.type) typeSel.value = data.type;
+    function syncOpts() {
+      var need = typeSel.value === 'select' || typeSel.value === 'multiselect';
+      div.querySelector('.f-opts').classList.toggle('hide', !need);
+    }
+    typeSel.addEventListener('change', syncOpts);
+    syncOpts();
+    div.querySelector('.f-del').addEventListener('click', function () {
+      if (div.parentNode) div.parentNode.removeChild(div);
+    });
+  }
+
+  function saveNewService() {
+    var name = document.getElementById('svcName').value.trim();
+    var code = document.getElementById('svcCode').value.trim().toLowerCase();
+    var fee = fen(document.getElementById('svcFee').value);
+    var formKind = document.getElementById('svcForm').value;
+    var flowKind = document.getElementById('svcFlow').value;
+    var desc = document.getElementById('svcDesc').value.trim();
+    var custom = document.getElementById('iconCustom').value.trim();
+    var picked = document.querySelector('#iconGrid .icon-opt.on');
+    var icon = custom ? iconPath(custom) : (picked ? 'assets/brand/' + picked.getAttribute('data-icon') : 'assets/brand/service-buy.svg');
+
+    if (!name) { UI.toast('请填写服务类型名称', 'err'); return; }
+    if (!/^[a-z][a-z0-9_]{1,30}$/.test(code)) { UI.toast('code 要用小写英文，字母开头，至少 2 位', 'err'); return; }
+    if (fee < 0) { UI.toast('默认费不能为负', 'err'); return; }
+
+    var schema = [];
+    var seen = {};
+    var rows = document.querySelectorAll('#fieldList .frow');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var key = row.querySelector('.f-key').value.trim();
+      var label = row.querySelector('.f-label').value.trim();
+      var type = row.querySelector('.f-type').value;
+      var required = row.querySelector('.f-req').checked;
+      var optionsRaw = row.querySelector('.f-options').value;
+      if (!key && !label) continue;
+      if (!/^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(key)) {
+        UI.toast('第 ' + (schema.length + 1) + ' 个字段的 key 要用英文、字母开头', 'err');
+        return;
+      }
+      if (!label) { UI.toast('第 ' + (schema.length + 1) + ' 个字段缺少名称', 'err'); return; }
+      if (seen[key]) { UI.toast('字段 key「' + key + '」重复了', 'err'); return; }
+      seen[key] = true;
+      var options = optionsRaw.split(/[,，]/).map(function (x) { return x.trim(); }).filter(function (x) { return !!x; });
+      if ((type === 'select' || type === 'multiselect') && !options.length) {
+        UI.toast('「' + label + '」是单选/多选，请填写选项', 'err');
+        return;
+      }
+      schema.push({
+        key: key, label: label, type: type, required: required,
+        placeholder: '', options: options, sortNo: schema.length + 1
+      });
+    }
+
+    try {
+      Store.addServiceType({
+        code: code, name: name, short: name, icon: icon,
+        formKind: formKind, flowKind: flowKind, defaultFeeFen: fee,
+        desc: desc, schema: schema
+      });
+      UI.toast('已新增「' + name + '」，录单 / 下单立即可见', 'ok');
+      view = 'services';
+      render();
+      window.scrollTo(0, 0);
+    } catch (e) { UI.err(e); }
+  }
+
+  function iconPath(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    if (v.indexOf('assets/') === 0) return v;
+    if (v.indexOf('/') === -1) return 'assets/brand/' + v;
+    return 'assets/brand/' + v.split('/').pop();
+  }
+
+  /* ---------- 商家类目 ---------- */
+  function renderCategories() {
+    var cats = Store.categories();
+    body.innerHTML = subHead('商家类目', '商家可多选类目；停用的类目不再出现在商家编辑里。') +
+      '<div class="card">' +
+        cats.map(function (c) {
+          return '<div class="svc">' +
+            '<div class="svc-hd">' +
+              '<span class="menu-ico">类</span>' +
+              '<div class="grow" style="min-width:0">' +
+                '<b class="svc-name">' + esc(c.name) + '</b>' +
+                '<div class="svc-meta">' + esc(c.code) + ' · 排序 ' + esc(c.sortNo) + '</div>' +
+              '</div>' +
+              '<label class="switch"><input type="checkbox" data-cat="' + c.id + '"' + (c.enabled ? ' checked' : '') + roAttr() + '></label>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      (canEdit
+        ? '<div class="card" style="margin-top:12px">' +
+            '<div class="strong" style="margin-bottom:10px">新增类目</div>' +
+            '<div class="field"><label class="fl req">名称</label><input id="catName" placeholder="例：宠物用品"></div>' +
+            '<div class="field"><label class="fl">code（可留空）</label><input id="catCode" placeholder="pet" autocapitalize="off" autocomplete="off">' +
+              '<div class="hint">小写英文；留空自动生成。</div></div>' +
+            '<button type="button" class="btn pri block" id="catAdd">添加类目</button>' +
+          '</div>'
+        : readOnlyAlert());
+    bindBack();
+
+    body.querySelectorAll('[data-cat]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (!canEdit) return;
+        var id = Number(cb.getAttribute('data-cat'));
+        var cat = Store.categories().filter(function (x) { return x.id === id; })[0];
+        if (!cat) return;
+        try {
+          Store.saveCategory({ id: cat.id, name: cat.name, enabled: cb.checked });
+          UI.toast(cb.checked ? '已启用' : '已停用', 'ok');
+          renderCategories();
+        } catch (e) { UI.err(e); }
+      });
+    });
+
+    var addBtn = document.getElementById('catAdd');
+    if (addBtn) addBtn.addEventListener('click', function () {
+      var name = document.getElementById('catName').value.trim();
+      var code = document.getElementById('catCode').value.trim().toLowerCase();
+      if (!name) { UI.toast('类目名称必填', 'err'); return; }
+      if (code && !/^[a-z][a-z0-9_]{0,20}$/.test(code)) { UI.toast('code 要用小写英文，字母开头', 'err'); return; }
+      try {
+        Store.saveCategory({ name: name, code: code || undefined });
+        UI.toast('类目已添加', 'ok');
+        renderCategories();
+      } catch (e) { UI.err(e); }
+    });
+  }
+
+  /* ---------- 商家自定义字段 ---------- */
+  function renderFields() {
+    var fields = Store.merchantFields();
+    body.innerHTML = subHead('商家自定义字段', '字段会出现在 用户与权限 → 新建商家 表单，按类型渲染。') +
+      '<div class="card">' +
+        fields.map(function (f) {
+          return '<div class="svc">' +
+            '<div class="svc-hd">' +
+              '<span class="menu-ico">' + esc((TYPE_LABEL[f.type] || '字段').slice(0, 1)) + '</span>' +
+              '<div class="grow" style="min-width:0">' +
+                '<b class="svc-name">' + esc(f.label) + (f.required ? ' <span class="badge red">必填</span>' : '') + '</b>' +
+                '<div class="svc-meta">' + esc(f.fieldKey) + ' · ' + esc(TYPE_LABEL[f.type] || f.type) + '</div>' +
+              '</div>' +
+              '<label class="switch"><input type="checkbox" data-field="' + f.id + '"' + (f.enabled ? ' checked' : '') + roAttr() + '></label>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      (canEdit
+        ? '<div class="card" style="margin-top:12px">' +
+            '<div class="strong" style="margin-bottom:10px">新增字段</div>' +
+            '<div class="field"><label class="fl req">名称</label><input id="mfLabel" placeholder="例：负责人"></div>' +
+            '<div class="field"><label class="fl req">key</label><input id="mfKey" placeholder="owner" autocapitalize="off" autocomplete="off">' +
+              '<div class="hint">英文，字母开头，可含数字和下划线。</div></div>' +
+            '<div class="field"><label class="fl">类型</label><select id="mfType">' + TYPE_OPTIONS + '</select></div>' +
+            '<div class="field hide" id="mfOptWrap"><label class="fl">选项（逗号分隔）</label><input id="mfOptions" placeholder="小型,中型,大型"></div>' +
+            '<label class="switch" style="margin-bottom:10px"><input type="checkbox" id="mfReq"><span class="small">必填</span></label>' +
+            '<button type="button" class="btn pri block" id="mfAdd">添加字段</button>' +
+          '</div>'
+        : readOnlyAlert());
+    bindBack();
+
+    body.querySelectorAll('[data-field]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        if (!canEdit) return;
+        var id = Number(cb.getAttribute('data-field'));
+        var f = Store.merchantFields().filter(function (x) { return x.id === id; })[0];
+        if (!f) return;
+        try {
+          Store.saveMerchantField({
+            id: f.id, fieldKey: f.fieldKey, label: f.label, type: f.type,
+            required: f.required, options: f.options || [], enabled: cb.checked
+          });
+          UI.toast(cb.checked ? '已启用' : '已停用', 'ok');
+          renderFields();
+        } catch (e) { UI.err(e); }
+      });
+    });
+
+    var typeSel = document.getElementById('mfType');
+    if (typeSel) typeSel.addEventListener('change', function () {
+      var need = typeSel.value === 'select' || typeSel.value === 'multiselect';
+      document.getElementById('mfOptWrap').classList.toggle('hide', !need);
+    });
+    var addBtn = document.getElementById('mfAdd');
+    if (addBtn) addBtn.addEventListener('click', function () {
+      var label = document.getElementById('mfLabel').value.trim();
+      var key = document.getElementById('mfKey').value.trim();
+      var type = document.getElementById('mfType').value;
+      var required = document.getElementById('mfReq').checked;
+      var options = document.getElementById('mfOptions').value.split(/[,，]/)
+        .map(function (x) { return x.trim(); }).filter(function (x) { return !!x; });
+      if (!label) { UI.toast('字段名称必填', 'err'); return; }
+      if (!/^[a-zA-Z][a-zA-Z0-9_]{0,30}$/.test(key)) { UI.toast('key 要用英文，字母开头', 'err'); return; }
+      if ((type === 'select' || type === 'multiselect') && !options.length) { UI.toast('单选 / 多选需要填写选项', 'err'); return; }
+      try {
+        Store.saveMerchantField({ fieldKey: key, label: label, type: type, required: required, options: options });
+        UI.toast('字段已添加', 'ok');
+        renderFields();
+      } catch (e) { UI.err(e); }
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

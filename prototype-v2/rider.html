@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>骑手端 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .page-body { padding: 12px 14px calc(92px + env(safe-area-inset-bottom)); }
+
+  .topline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 10px;
+  }
+  .topline .small { min-width: 0; }
+  .topline .btn { flex: 0 0 auto; }
+
+  .glance {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .glance > div {
+    min-width: 0;
+    padding: 10px 11px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+  }
+  .glance span { display: block; font-size: 11px; color: var(--muted); }
+  .glance b { display: block; margin-top: 2px; font-size: 21px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+  .mcard {
+    min-width: 0;
+    margin-bottom: 10px;
+    padding: 14px;
+    overflow-wrap: anywhere;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+  }
+  .mcard.task { cursor: pointer; }
+  .mcard.task:active { border-color: #D8CDB7; }
+  .mcard.task.open { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(245, 179, 1, .12); }
+
+  .card-hd { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+  .card-hd b { font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .card-hd .no { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .card-hd .badge { margin-left: auto; }
+  .card-hd .caret { flex: 0 0 auto; color: var(--muted); font-size: 11px; transition: transform .15s; }
+  .mcard.task.open .caret { transform: rotate(180deg); }
+
+  .who { margin-top: 6px; font-size: 13px; }
+  .who b { font-weight: 750; }
+  .who .phone { margin-left: 6px; font-size: 12px; color: var(--muted); }
+
+  .addr {
+    margin-top: 3px;
+    font-size: 12.5px;
+    color: #5A5D66;
+    line-height: 1.5;
+  }
+
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    row-gap: 4px;
+    min-width: 0;
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px dashed var(--line);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .line .grow {
+    flex: 1 1 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .line .prog { flex: 0 0 auto; color: var(--brand-ink); font-weight: 700; }
+  .line .amt { flex: 0 0 auto; margin-left: auto; color: var(--ink); font-weight: 750; font-variant-numeric: tabular-nums; }
+  .line .st { flex: 0 0 auto; }
+
+  .hintline {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--cream);
+    color: #6C5300;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .hintline.warn { background: #FDECEC; color: #8F2020; }
+  .hintline.ok { background: #E8F6EC; color: #1F6B3B; }
+
+  .detail {
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .kv-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .kv-row .k { flex: 0 0 62px; color: var(--muted); font-size: 12px; }
+  .kv-row .v { flex: 1; min-width: 0; }
+
+  .group {
+    margin-top: 8px;
+    padding: 10px 11px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #FCFCFA;
+  }
+  .group-hd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .group-hd b { flex: 1; min-width: 0; font-size: 13px; font-weight: 750; }
+  .group-hd .badge { flex: 0 0 auto; }
+  .group .items { margin-top: 5px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .group .grow-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .group .grow-row .small { min-width: 0; }
+  .group .grow-row .btn { flex: 0 0 auto; margin-left: auto; }
+
+  .mbtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 10px;
+    padding: 0 16px;
+    border: 1px solid var(--brand);
+    border-radius: 14px;
+    background: var(--brand);
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(13, 14, 17, .14);
+  }
+  .mbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(13, 14, 17, .14); }
+  .mbtn.alt {
+    border-color: var(--line);
+    background: var(--white);
+    color: var(--ink);
+    font-weight: 650;
+    box-shadow: none;
+  }
+  .mbtn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+  .hold {
+    margin-top: 10px;
+    padding: 9px 11px;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    background: #F7F7F5;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .hcard {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+  }
+  .hcard:last-child { border-bottom: 0; }
+  .hcard .main { flex: 1; min-width: 0; }
+  .hcard .nm { font-size: 13px; font-weight: 700; }
+  .hcard .sub { margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+  .hcard .side { flex: 0 0 auto; text-align: right; }
+  .hcard .side b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hcard .side span { font-size: 11px; color: var(--muted); }
+
+  .pay-hero {
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    background: var(--ink);
+    color: #fff;
+    text-align: center;
+  }
+  .pay-hero .k { font-size: 11.5px; color: #B8B9BF; }
+  .pay-hero .money { margin-top: 3px; font-size: 30px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+
+  .pay-methods { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pay-methods .chip { flex: 1 1 calc(50% - 8px); min-width: 0; justify-content: center; }
+
+  .sheet-foot-row { display: flex; gap: 8px; width: 100%; }
+  .sheet-foot-row .btn { flex: 1; }
+
+  .hero {
+    padding: 16px;
+    margin-bottom: 10px;
+    border-radius: var(--r-lg);
+    background: var(--ink);
+    color: #fff;
+  }
+  .hero .k { font-size: 11.5px; color: #B8B9BF; }
+  .hero .t { margin-top: 3px; font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+  .hero .b { margin-top: 8px; font-size: 12px; color: #D8D9DE; line-height: 1.5; }
+
+  .btn-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .btn-actions .btn { width: 100%; }
+
+  @media (max-width: 365px) {
+    .card-hd b { font-size: 14px; }
+    .glance b { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var me = null;
+  try { me = Store.me(); } catch (e) { me = null; }
+
+  var screen = UI.mobilePage({
+    role: 'rider',
+    roleName: '骑手端',
+    title: '我的任务',
+    sub: '取货 · 送达 · 代收',
+    body: '<div id="view"></div>',
+    tabbar:
+      '<a href="#" data-tab="tasks" class="on"><img src="assets/brand/tab-order.svg" alt=""><span>任务</span></a>' +
+      '<a href="#" data-tab="history"><img src="assets/brand/tab-bill.svg" alt=""><span>历史</span></a>' +
+      '<a href="#" data-tab="mine"><img src="assets/brand/tab-mine.svg" alt=""><span>我的</span></a>'
+  });
+  if (!screen) return;
+
+  var tab = 'tasks';
+  var expanded = {};
+  var finMethod = 'wechat';
+
+  function esc(v) { return UI.esc(v); }
+  function money(fen) { return UI.money(fen); }
+
+  function fen(v) {
+    var n = parseFloat(String(v == null ? '' : v).replace(/[^\d.-]/g, ''));
+    return isNaN(n) ? 0 : Math.round(n * 100);
+  }
+
+  function svcOf(o) {
+    return Store.serviceType(o.serviceType) || { name: o.serviceType, icon: 'assets/brand/service-buy.svg' };
+  }
+
+  function custUser(o) {
+    var c = Store.customer(o.customerId);
+    return c ? Store.user(c.userId) : null;
+  }
+
+  function groupsOf(o) { return Store.groupsOf(o); }
+
+  function pickedCount(o) {
+    return groupsOf(o).filter(function (g) { return !!g.pickedAt; }).length;
+  }
+
+  function allPicked(o) {
+    var groups = groupsOf(o);
+    return groups.length > 0 && groups.every(function (g) { return !!g.pickedAt; });
+  }
+
+  function routeText(o) {
+    if (o.serviceType === 'buy') {
+      var names = groupsOf(o).map(function (g) { return g.merchantName; }).filter(Boolean).join('、');
+      return (names || '商家') + ' → ' + (o.address ? o.address.poi : '收货地址');
+    }
+    var s = o.service || {};
+    return (s.origin || '起点') + ' → ' + (s.dest || '终点');
+  }
+
+  function statusPriority(o) {
+    var map = {
+      DELIVERING: 1,
+      PICKED_UP: 2,
+      READY_FOR_PICKUP: 3,
+      PENDING_PREP: 4,
+      DELIVERED: 5,
+      PENDING_DISPATCH: 6
+    };
+    return map[o.status] || 9;
+  }
+
+  function myOrders() {
+    return (Store.get().orders || []).filter(function (o) {
+      return Number(o.riderId) === Number(me && me.id);
+    });
+  }
+
+  function todoOrders() {
+    return myOrders().filter(function (o) {
+      return !Store.isTerminal(o.status) && o.status !== 'CANCELLED';
+    }).sort(function (a, b) {
+      var pa = statusPriority(a), pb = statusPriority(b);
+      if (pa !== pb) return pa - pb;
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+  }
+
+  function historyOrders() {
+    return myOrders().filter(function (o) {
+      return Store.isTerminal(o.status) || o.status === 'CANCELLED';
+    }).sort(function (a, b) {
+      return new Date(b.finishedAt || b.cancelledAt || b.createdAt) -
+        new Date(a.finishedAt || a.cancelledAt || a.createdAt);
+    });
+  }
+
+  function actionLabel(o) {
+    if (o.status !== 'READY_FOR_PICKUP') return '';
+    if (o.serviceType === 'transfer') return '确认接到乘客';
+    if (o.serviceType === 'driver') return '确认上车，开始代驾';
+    if (o.serviceType === 'pickup') return '确认取件';
+    if (o.serviceType === 'errand') return '开始代办';
+    return '确认取货';
+  }
+
+  function groupBadge(g) {
+    if (g.pickedAt) return { t: '已取货', c: 'green' };
+    if (g.prepStatus === 'silent') return { t: '缺货已上报', c: 'red' };
+    if (g.prepStatus === 'ready') return { t: '备货完成', c: 'blue' };
+    if (g.prepStatus === 'notified') return { t: '待备货', c: 'amber' };
+    if (g.prepStatus === 'cancelled') return { t: '已取消', c: 'slate' };
+    return { t: '无需备货', c: 'slate' };
+  }
+
+  function serviceRows(o) {
+    if (o.serviceType === 'buy') return '';
+    var svc = o.service || {};
+    var schema = o.serviceSchemaSnapshot || (Store.serviceType(o.serviceType) || {}).schema || [];
+    var rows = schema.map(function (f) {
+      var v = svc[f.key];
+      if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '';
+      if (Array.isArray(v)) v = v.join('、');
+      if (f.type === 'switch') v = v ? '是' : '否';
+      return '<div class="kv-row"><span class="k">' + esc(f.label) + '</span><span class="v">' + esc(v) + '</span></div>';
+    }).filter(Boolean);
+    if (!rows.length) return '';
+    return '<div class="detail" style="margin-top:6px;padding-top:2px;border-top:0">' + rows.join('') + '</div>';
+  }
+
+  function groupHtml(o, g, idx) {
+    var b = groupBadge(g);
+    var items = (g.items || []).map(function (it) {
+      return esc(it.text) + (Number(it.qty || 1) > 1 ? ' ×' + Number(it.qty) : '');
+    }).join('、') || '物品清单未填写';
+    var btn = '';
+    if (g.pickedAt) {
+      btn = '<span class="small muted">已取 · ' + money(g.goodsRealFen != null ? g.goodsRealFen : 0) +
+        (g.receiptName ? ' · 小票已记' : '') + '</span>';
+    } else if (o.status === 'READY_FOR_PICKUP' && groupsOf(o).length) {
+      btn = '<button type="button" class="btn sm pri" data-pickg="' + g.id + '" data-oid="' + o.id + '">取货</button>';
+    } else if (o.status === 'PENDING_PREP') {
+      btn = '<button type="button" class="btn sm" disabled>等商家备货</button>';
+    } else {
+      btn = '<span class="small muted">暂不可取</span>';
+    }
+    return '<div class="group">' +
+      '<div class="group-hd"><b>' + (idx + 1) + '. ' + esc(g.merchantName || '商家') + '</b>' +
+      '<span class="badge ' + b.c + '">' + esc(b.t) + '</span></div>' +
+      '<div class="items">' + items + '</div>' +
+      '<div class="grow-row"><span class="small muted">货款估价 <b class="num">' + money(g.goodsEstFen) + '</b>' +
+      (g.note ? ' · ' + esc(g.note) : '') + '</span>' + btn + '</div>' +
+      '</div>';
+  }
+
+  function taskCard(o) {
+    var u = custUser(o);
+    var groups = groupsOf(o);
+    var picked = pickedCount(o);
+    var total = groups.length;
+    var isOpen = !!expanded[o.id];
+    var svc = svcOf(o);
+    var groupNames = groups.map(function (g) { return g.merchantName; }).filter(Boolean).join('、');
+
+    var groupLine = total
+      ? '商家组：' + groupNames
+      : (o.serviceType === 'buy' ? '商家组未生成' : '无需取货 · 直接服务');
+
+    var hint = '';
+    if (o.status === 'READY_FOR_PICKUP' && total && picked < total) {
+      hint = '<div class="hintline">已取 ' + picked + '/' + total + ' 家，还需取 ' + (total - picked) +
+        ' 家；全部取齐后才能开始配送。</div>';
+    } else if (o.status === 'PENDING_PREP') {
+      hint = '<div class="hintline">商家还在备货，先别去，取齐后才能开始配送。</div>';
+    } else if (o.status === 'DELIVERED') {
+      hint = '<div class="hintline ok">已送达，请向客户代收并结单。</div>';
+    } else if (o.status === 'DELIVERING') {
+      hint = '<div class="hintline">配送中，送达后请确认送达。</div>';
+    }
+
+    var detail = isOpen
+      ? '<div class="detail" data-stop="1">' +
+        (o.address ? '<div class="kv-row"><span class="k">送达</span><span class="v">' +
+          esc(o.address.poi) + ' ' + esc(o.address.detail || '') + '</span></div>' : '') +
+        '<div class="kv-row"><span class="k">服务</span><span class="v">' + esc(svc.name) + '</span></div>' +
+        serviceRows(o) +
+        (o.note ? '<div class="kv-row"><span class="k">备注</span><span class="v">' + esc(o.note) + '</span></div>' : '') +
+        (groups.length ? groups.map(function (g, i) { return groupHtml(o, g, i); }).join('') : '') +
+        '<div class="kv-row" style="margin-top:6px"><span class="k">应收</span><span class="v"><b class="num">' +
+          money(Store.receivable(o)) + '</b>' + (Store.owedOf(o) > 0 ? ' · 未收 ' + money(Store.owedOf(o)) : '') +
+          '</span></div>' +
+        actionHtml(o) +
+        '</div>'
+      : '';
+
+    return '<article class="mcard task' + (isOpen ? ' open' : '') + '" data-toggle="' + o.id + '">' +
+      '<div class="card-hd"><b>' + esc(o.no) + '</b>' +
+      '<span class="badge ' + Store.statusColor(o) + '">' + esc(Store.statusLabel(o)) + '</span>' +
+      '<span class="caret">▼</span></div>' +
+      '<div class="who"><b>' + esc(u ? u.name : '客户') + '</b>' +
+      '<span class="phone">' + esc(u ? u.phone : '') + '</span></div>' +
+      '<div class="addr">' + esc(o.address ? (o.address.poi + ' ' + (o.address.detail || '')) : '地址未填写') + '</div>' +
+      '<div class="line"><span class="st">' + esc(svc.name) + '</span>' +
+      (total ? '<span class="prog">已取 ' + picked + '/' + total + ' 家</span>' : '') +
+      '<span class="amt">' + money(Store.receivable(o)) + '</span>' +
+      '<span class="grow">' + esc(groupLine) + '</span></div>' +
+      hint + detail +
+      '</article>';
+  }
+
+  function actionHtml(o) {
+    if (o.status === 'READY_FOR_PICKUP') {
+      if (!groupsOf(o).length) {
+        return '<button type="button" class="mbtn" data-act="pick" data-oid="' + o.id + '">' + esc(actionLabel(o)) + '</button>';
+      }
+      if (allPicked(o)) {
+        return '<button type="button" class="mbtn" data-act="start" data-oid="' + o.id + '">开始配送</button>';
+      }
+      return '<div class="hold">按商家逐个取货，全部取齐后才能开始配送</div>';
+    }
+    if (o.status === 'PICKED_UP') {
+      var label = (o.serviceType === 'transfer' || o.serviceType === 'driver') ? '开始行程' : '开始配送';
+      return '<button type="button" class="mbtn" data-act="start" data-oid="' + o.id + '">' + label + '</button>';
+    }
+    if (o.status === 'DELIVERING') {
+      return '<button type="button" class="mbtn" data-act="deliver" data-oid="' + o.id + '">确认送达</button>';
+    }
+    if (o.status === 'DELIVERED') {
+      return '<button type="button" class="mbtn" data-act="finish" data-oid="' + o.id + '">代收结单</button>';
+    }
+    if (o.status === 'PENDING_PREP') {
+      return '<div class="hold">等待商家备货完成</div>';
+    }
+    return '';
+  }
+
+  function tasksHtml() {
+    var list = todoOrders();
+    var mine = myOrders();
+    var ready = list.filter(function (o) { return o.status === 'READY_FOR_PICKUP' || o.status === 'PENDING_PREP'; }).length;
+    var delivered = list.filter(function (o) { return o.status === 'DELIVERED'; }).length;
+
+    var html = '<div class="glance">' +
+      '<div><span>进行中</span><b>' + list.length + '</b></div>' +
+      '<div><span>待取货</span><b>' + ready + '</b></div>' +
+      '<div><span>待结单</span><b>' + delivered + '</b></div>' +
+      '</div>';
+
+    if (!list.length) {
+      return html + '<div class="mcard">' + UI.empty('assets/brand/empty-orders.svg', '当前没有待办任务', '新任务会自动出现在这里') + '</div>';
+    }
+    return html + list.map(taskCard).join('');
+  }
+
+  function historyHtml() {
+    var list = historyOrders();
+    if (!list.length) {
+      return '<div class="mcard">' + UI.empty('assets/brand/empty-orders.svg', '还没有历史任务', '已完成和已取消的订单会留在这里') + '</div>';
+    }
+    return '<div class="mcard">' +
+      '<div class="row" style="margin-bottom:2px"><b>历史任务</b><span class="right small muted">' + list.length + ' 单</span></div>' +
+      list.map(function (o) {
+        var u = custUser(o);
+        var paid = Store.paidOf(o.id);
+        var owed = Store.owedOf(o);
+        var tail = o.status === 'FINISHED'
+          ? '实收 ' + money(paid) + (owed > 0 ? ' · 欠 ' + money(owed) : ' · 已收清') +
+            (o.settleMethod ? ' · ' + esc(Store.METHOD_LABELS[o.settleMethod] || o.settleMethod) : '')
+          : ('取消原因：' + esc(o.cancelReason || '—'));
+        return '<div class="hcard">' +
+          '<div class="main"><div class="nm">' + esc(o.no) + ' · ' + esc(svcOf(o).name) + '</div>' +
+          '<div class="sub">' + esc(u ? u.name : '客户') + ' · ' + esc(UI.fmtDate(o.finishedAt || o.cancelledAt || o.createdAt)) + '</div>' +
+          '<div class="sub">' + tail + '</div></div>' +
+          '<div class="side"><span class="badge ' + Store.statusColor(o) + '">' + esc(Store.statusLabel(o)) + '</span>' +
+          '<b class="num" style="margin-top:4px">' + money(Store.receivable(o)) + '</b></div>' +
+          '</div>';
+      }).join('') +
+      '</div>';
+  }
+
+  function mineHtml() {
+    var all = myOrders();
+    var done = all.filter(function (o) { return o.status === 'FINISHED'; }).length;
+    var open = all.filter(function (o) { return !Store.isTerminal(o.status); }).length;
+    var advance = all.filter(function (o) {
+      return !Store.isTerminal(o.status) && groupsOf(o).some(function (g) { return g.goodsRealFen > 0; });
+    }).reduce(function (sum, o) {
+      return sum + groupsOf(o).reduce(function (s, g) { return s + Number(g.goodsRealFen || 0); }, 0);
+    }, 0);
+
+    return '<div class="hero">' +
+      '<div class="k">骑手账号</div>' +
+      '<div class="t">' + esc(me ? me.name : '未登录') + '</div>' +
+      '<div class="b">' + esc(me ? me.phone : '') + '</div>' +
+      '</div>' +
+      '<div class="mcard">' +
+      '<div class="kv-row"><span class="k">进行中</span><span class="v num">' + open + ' 单</span></div>' +
+      '<div class="kv-row"><span class="k">已结单</span><span class="v num">' + done + ' 单</span></div>' +
+      '<div class="kv-row"><span class="k">经手垫付</span><span class="v num">' + money(advance) + '</span></div>' +
+      '</div>' +
+      '<div class="mcard">' +
+      '<div class="btn-actions">' +
+      '<button type="button" class="btn block" id="refresh2">立即刷新</button>' +
+      '<button type="button" class="btn block pri" id="switchWs">切换工作区</button>' +
+      '<button type="button" class="btn block danger" id="logout">退出登录</button>' +
+      '</div>' +
+      '<div class="small muted" style="margin-top:10px">取货时实际货款填 0 元也可以提交，但会再确认一次。选「欠款」结单时实收固定为 0。</div>' +
+      '</div>';
+  }
+
+  function render() {
+    screen.innerHTML =
+      '<div class="topline"><span class="small muted">进行中任务按状态置顶，点卡片看详情</span>' +
+      '<button type="button" class="btn sm" id="refresh">刷新</button></div>' +
+      (tab === 'tasks' ? tasksHtml() : tab === 'history' ? historyHtml() : mineHtml());
+    highlightTab();
+    bind();
+  }
+
+  function highlightTab() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tabbar [data-tab]'), function (el) {
+      el.classList.toggle('on', el.getAttribute('data-tab') === tab);
+    });
+  }
+
+  function closestStop(target) {
+    var el = target;
+    while (el && el !== screen) {
+      if (el.getAttribute && el.getAttribute('data-stop')) return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function bind() {
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-toggle]'), function (el) {
+      el.addEventListener('click', function (e) {
+        if (closestStop(e.target)) return;
+        var id = Number(el.getAttribute('data-toggle'));
+        expanded[id] = !expanded[id];
+        render();
+      });
+    });
+
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-pickg]'), function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var o = Store.order(Number(b.getAttribute('data-oid')));
+        var g = groupsOf(o).filter(function (x) { return Number(x.id) === Number(b.getAttribute('data-pickg')); })[0];
+        if (o && g) openPickupGroup(o, g);
+      });
+    });
+
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-act]'), function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var o = Store.order(Number(b.getAttribute('data-oid')));
+        if (!o) return;
+        var act = b.getAttribute('data-act');
+        if (act === 'pick') openPickupSimple(o);
+        else if (act === 'start') startService(o);
+        else if (act === 'deliver') openDeliver(o);
+        else if (act === 'finish') openFinish(o);
+      });
+    });
+
+    var refresh = document.getElementById('refresh');
+    if (refresh) refresh.addEventListener('click', function () {
+      render();
+      UI.toast('已刷新', 'ok');
+    });
+    var refresh2 = document.getElementById('refresh2');
+    if (refresh2) refresh2.addEventListener('click', function () {
+      render();
+      UI.toast('已刷新', 'ok');
+    });
+    var switchWs = document.getElementById('switchWs');
+    if (switchWs) switchWs.addEventListener('click', function () { UI.switchWorkspace(); });
+    var logout = document.getElementById('logout');
+    if (logout) logout.addEventListener('click', function () { UI.logout(); });
+  }
+
+  function startService(o) {
+    try {
+      Store.startService(o.id);
+      UI.toast(o.serviceType === 'transfer' || o.serviceType === 'driver' ? '行程已开始' : '开始配送', 'ok');
+      render();
+    } catch (e) { UI.err(e); }
+  }
+
+  function sheetFoot(okText, okId, cancelId) {
+    return '<div class="sheet-foot-row">' +
+      '<button type="button" class="btn" id="' + cancelId + '">取消</button>' +
+      '<button type="button" class="btn pri" id="' + okId + '">' + esc(okText) + '</button>' +
+      '</div>';
+  }
+
+  function openPickupGroup(o, g) {
+    var receiptName = '';
+    var methods = '<option value="scan">扫码支付</option><option value="cash">现金</option>';
+
+    UI.sheet({
+      title: '取货 · ' + (g.merchantName || '商家'),
+      body: '<div class="note small" style="margin-bottom:12px">记的是替客户垫给商家的货款；0 元也要填 0。</div>' +
+        '<div class="field"><label class="fl">实际货款（元）</label>' +
+        '<input id="pkAmt" inputmode="decimal" value="' + UI.yuan(g.goodsEstFen) + '"></div>' +
+        '<div class="field"><label class="fl">支付方式</label><select id="pkMethod">' + methods + '</select></div>' +
+        '<div class="field"><label class="fl">小票照片（选填）</label>' +
+        '<input type="file" id="pkFile" accept="image/*">' +
+        '<div class="hint" id="pkFileHint">不拍也能提交；只记录文件名</div></div>' +
+        '<div class="field"><label class="fl">备注（选填）</label>' +
+        '<input id="pkNote" placeholder="例：商家少找 2 元"></div>',
+      foot: sheetFoot('确认取货', 'pkOk', 'pkCancel'),
+      onMount: function (sheet) {
+        sheet.querySelector('#pkCancel').addEventListener('click', UI.closeSheet);
+        var file = sheet.querySelector('#pkFile');
+        file.addEventListener('change', function () {
+          var f = file.files && file.files[0];
+          receiptName = f ? f.name : '';
+          sheet.querySelector('#pkFileHint').textContent = receiptName ? ('已选择：' + receiptName) : '不拍也能提交；只记录文件名';
+        });
+        sheet.querySelector('#pkOk').addEventListener('click', function () {
+          var amount = fen(sheet.querySelector('#pkAmt').value);
+          if (amount < 0) { UI.toast('实际货款不能为负', 'err'); return; }
+          var method = sheet.querySelector('#pkMethod').value;
+          var note = String(sheet.querySelector('#pkNote').value || '').trim();
+          function doSubmit() {
+            try {
+              Store.pickupGroup(o.id, g.id, {
+                goodsRealFen: amount,
+                method: method,
+                receiptName: receiptName,
+                note: note
+              });
+              UI.closeSheet();
+              UI.toast('已取货，垫付 ' + money(amount), 'ok');
+              render();
+            } catch (e) { UI.err(e); }
+          }
+          if (amount === 0) {
+            UI.modal({
+              title: '确认 0 元取货',
+              okText: '确认 0 元',
+              body: '<div class="note small">实际货款填的是 <b>0 元</b>，确认这家店没有需要垫付的货款吗？</div>',
+              onOk: doSubmit
+            });
+          } else {
+            doSubmit();
+          }
+        });
+      }
+    });
+  }
+
+  function openPickupSimple(o) {
+    UI.sheet({
+      title: actionLabel(o),
+      body: '<div class="note small" style="margin-bottom:12px">这个服务不涉及商家货款，确认后直接进入下一步。</div>' +
+        '<div class="field"><label class="fl">备注（选填）</label>' +
+        '<input id="spNote" placeholder="例：已拿到文件，包装完好"></div>',
+      foot: sheetFoot('确认', 'spOk', 'spCancel'),
+      onMount: function (sheet) {
+        sheet.querySelector('#spCancel').addEventListener('click', UI.closeSheet);
+        sheet.querySelector('#spOk').addEventListener('click', function () {
+          try {
+            Store.pickup(o.id, {
+              goodsRealFen: 0,
+              note: String(sheet.querySelector('#spNote').value || '').trim()
+            });
+            UI.closeSheet();
+            UI.toast('已确认', 'ok');
+            render();
+          } catch (e) { UI.err(e); }
+        });
+      }
+    });
+  }
+
+  function openDeliver(o) {
+    UI.sheet({
+      title: '确认送达 · ' + o.no,
+      body: '<div class="field"><label class="fl">送达备注（选填）</label>' +
+        '<input id="dlNote" placeholder="例：放门口鞋柜 / 已交前台"></div>' +
+        '<div class="note small">确认后订单进入「已送达」，下一步是代收结单。</div>',
+      foot: sheetFoot('确认送达', 'dlOk', 'dlCancel'),
+      onMount: function (sheet) {
+        sheet.querySelector('#dlCancel').addEventListener('click', UI.closeSheet);
+        sheet.querySelector('#dlOk').addEventListener('click', function () {
+          try {
+            Store.deliver(o.id, String(sheet.querySelector('#dlNote').value || '').trim() || '已送达');
+            UI.closeSheet();
+            UI.toast('已送达，记得代收结单', 'ok');
+            render();
+          } catch (e) { UI.err(e); }
+        });
+      }
+    });
+  }
+
+  function openFinish(o) {
+    var recv = Store.receivable(o);
+    finMethod = 'wechat';
+    var methods = ['wechat', 'alipay', 'cash', 'credit'];
+
+    UI.sheet({
+      title: '代收结单 · ' + o.no,
+      body: '<div class="pay-hero"><div class="k">应收金额</div><div class="money">' + money(recv) + '</div></div>' +
+        '<div class="field"><label class="fl">收款方式</label><div class="pay-methods" id="finMethods">' +
+        methods.map(function (m) {
+          return '<button type="button" class="chip' + (m === 'wechat' ? ' on' : '') + '" data-m="' + m + '">' +
+            esc(Store.METHOD_LABELS[m]) + '</button>';
+        }).join('') + '</div></div>' +
+        '<div class="field"><label class="fl">实收金额（元）</label>' +
+        '<input id="finPaid" inputmode="decimal" value="' + UI.yuan(recv) + '"></div>' +
+        '<div class="small muted" id="finHint">未收部分会记客户欠款。</div>',
+      foot: sheetFoot('确认结单', 'finOk', 'finCancel'),
+      onMount: function (sheet) {
+        var input = sheet.querySelector('#finPaid');
+        var hint = sheet.querySelector('#finHint');
+
+        function updateHint() {
+          if (finMethod === 'credit') {
+            hint.textContent = '欠款结单：实收固定 0 元，全部记客户欠款。';
+            return;
+          }
+          var paid = fen(input.value);
+          var owed = Math.max(0, recv - paid);
+          hint.textContent = paid > recv
+            ? '实收不能大于应收 ' + money(recv) + '。'
+            : (owed > 0 ? '结单后客户还欠 ' + money(owed) + '。' : '当场收清。');
+        }
+
+        Array.prototype.forEach.call(sheet.querySelectorAll('#finMethods [data-m]'), function (b) {
+          b.addEventListener('click', function () {
+            finMethod = b.getAttribute('data-m');
+            Array.prototype.forEach.call(sheet.querySelectorAll('#finMethods [data-m]'), function (x) {
+              x.classList.toggle('on', x === b);
+            });
+            if (finMethod === 'credit') {
+              input.value = '0.00';
+              input.disabled = true;
+            } else {
+              input.disabled = false;
+              if (fen(input.value) === 0) input.value = UI.yuan(recv);
+            }
+            updateHint();
+          });
+        });
+        input.addEventListener('input', updateHint);
+        sheet.querySelector('#finCancel').addEventListener('click', UI.closeSheet);
+        sheet.querySelector('#finOk').addEventListener('click', function () {
+          var paid = finMethod === 'credit' ? 0 : fen(input.value);
+          if (paid < 0) { UI.toast('实收不能为负', 'err'); return; }
+          if (paid > recv) { UI.toast('实收不能大于应收 ' + money(recv), 'err'); return; }
+          try {
+            Store.finish(o.id, paid, finMethod);
+            UI.closeSheet();
+            UI.toast('已结单，实收 ' + money(paid), 'ok');
+            render();
+          } catch (e) { UI.err(e); }
+        });
+        updateHint();
+      }
+    });
+  }
+
+  UI.bindTabbar(function (k) {
+    tab = k;
+    render();
+  });
+
+  render();
+
+  setInterval(function () {
+    if (tab === 'mine') return;
+    if (document.querySelector('.modal-mask') || document.querySelector('.sheet-mask')) return;
+    if (document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    render();
+  }, 8000);
+})();
+</script>
+</body>
+</html>

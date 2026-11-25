@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>商家端 · 同城跑腿原型</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ROLES = [
+    { k: 'merchant', h: 'merchant.html', t: '商家端' },
+    { k: 'rider', h: 'rider.html', t: '骑手端' },
+    { k: 'customer', h: 'customer.html', t: '客户端' },
+    { k: 'dispatch', h: 'dispatch.html', t: '调度台' }
+  ];
+  var mid = localStorage.getItem('proto_mid') || 'M1';
+  var lastPoll = 0, seconds = 0;
+
+  var screen = UI.mobilePage({
+    active: 'merchant', roleName: '商家端', roles: ROLES,
+    title: '备货工作台', sub: '',
+    barRight: '<span id="audioDot" class="dot" style="background:#f87171"></span>',
+    cap: '真实部署：商家用 Chrome/夸克「添加到桌面」全屏挂机，链接带免登 token，不装 App、不注册'
+  });
+
+  function render() {
+    var s = Store.get();
+    var m = UI.merchant(s, mid);
+    var mine = s.prep.filter(function (p) { return p.merchant_id === mid; });
+    var waiting = mine.filter(function (p) {
+      var o = UI.order(s, p.order_id);
+      return p.status !== 'ready' && o && !Store.isTerminal(o.status);
+    }).sort(function (a, b) { return a.notified_at - b.notified_at; });
+    var done = mine.filter(function (p) { return p.status === 'ready'; }).sort(function (a, b) { return b.ready_at - a.ready_at; }).slice(0, 6);
+    var q = Store.quotaOf(mid);
+
+    var html = '<div class="mcard" style="background:#fffbeb;border-color:#fde68a">' +
+      '<b>切换商家身份（演示用）</b><div class="chips" style="margin-top:8px">' +
+      s.merchants.map(function (x) {
+        return '<button class="chip' + (x.id === mid ? ' on' : '') + '" data-m="' + x.id + '">' + UI.esc(x.name) + '</button>';
+      }).join('') + '</div></div>';
+
+    html += '<div class="mcard"><div class="row"><div><b>' + UI.esc(m.name) + '</b>' +
+      '<div class="muted small">今天已确认 ' + mine.filter(function (p) { return p.status === 'ready'; }).length + ' 单</div></div>' +
+      '<div class="right right-t"><span class="dot ' + (UI.audioArmed() ? 'live' : '') + '" id="pd"></span>' +
+      '<div class="muted small" id="pollInfo">—</div></div></div>' +
+      (UI.audioArmed() ? '' :
+        '<div class="alert warn small" style="margin-top:10px"><b>声音未开启。</b>浏览器要求先有一次用户点击才允许播放提示音——这正是不能只靠"听声音"的原因。</div>') +
+      '<div class="row" style="margin-top:10px;gap:8px">' +
+      '<button class="btn sm" id="btnSound">🔊 声音自检</button>' +
+      '<button class="btn sm pri" id="btnNow">立即拉取</button>' +
+      '<span class="right small muted">自动拉取间隔 12 秒</span></div></div>';
+
+    html += '<h3 style="margin:14px 4px 8px">待备货 ' + (waiting.length ? '<span class="badge amber">' + waiting.length + '</span>' : '') + '</h3>';
+    if (!waiting.length) html += '<div class="mcard center muted">暂无新单，页面保持打开即可</div>';
+    waiting.forEach(function (p) {
+      var o = UI.order(s, p.order_id);
+      var mins = Math.round((Date.now() - p.notified_at) / 60000);
+      var acked = s.notify.some(function (n) { return n.order_id === o.id && n.channel === 'poll' && n.status === 'acked'; });
+      html += '<div class="mcard' + (acked && mins < 2 ? ' hot' : '') + '">' +
+        '<div class="t row"><b>' + UI.esc(o.items[0].text.slice(0, 18)) + '</b>' +
+        '<span class="right badge ' + (acked ? 'green' : 'slate') + '">' + (acked ? '已读到' : '未读到') + '</span></div>' +
+        '<div class="muted small" style="margin-top:4px">' + o.order_no + '｜' + UI.esc(o.customer_id === 'C1' ? '王姐' : '客户') + '｜' +
+        '送达 ' + UI.esc(o.address ? o.address.poi : '') + (o.note ? '<br>备注：' + UI.esc(o.note) : '') + '</div>' +
+        '<div class="row small" style="margin-top:6px"><span class="muted">已等 ' + mins + ' 分钟</span>' +
+        '<span class="right">货款按小票实收，跑腿费我们付</span></div>' +
+        (p.shortage ? '<div class="alert err small" style="margin-top:8px">已上报缺货：' + UI.esc(p.shortage_text) + '（等调度联系）</div>' : '') +
+        '<button class="mbtn" data-ready="' + o.id + '">✔ 备货完成，可以来取</button>' +
+        '<button class="mbtn alt" data-short="' + o.id + '">缺货 / 少一样</button>' +
+        '</div>';
+    });
+
+    html += '<h3 style="margin:14px 4px 8px">最近已确认</h3>';
+    if (!done.length) html += '<div class="muted small" style="padding:0 4px 10px">—</div>';
+    done.forEach(function (p) {
+      var o = UI.order(s, p.order_id);
+      html += '<div class="mcard" style="opacity:.75"><div class="row"><span>' + UI.esc(o.items[0].text.slice(0, 22)) + '</span>' +
+        '<span class="right small muted">' + new Date(p.ready_at).toLocaleTimeString('zh-CN', { hour12: false }) + '</span></div>' +
+        '<div class="small muted">' + o.order_no + '｜由' + (p.acked_channel === 'manual' ? '调度代点' : '本店确认') + '</div></div>';
+    });
+
+    html += '<div class="mcard" style="margin-top:14px;background:#f0fdf4;border-color:#bbf7d0">' +
+      '<b>订阅消息额度：' + q.quota_left + ' 条</b>' +
+      '<div class="small muted" style="margin-top:6px">微信小程序上线后，我们每次只能给<b>有额度</b>的号发一条通知；额度是你每点一次按钮攒下来的。' +
+      '点完"备货完成"会顺手弹一次授权——这就是为什么"没有额度"时你只能靠这个页面，而不是靠推送。</div></div>';
+
+    screen.innerHTML = html;
+    document.getElementById('pollInfo').textContent = lastPoll ? ('上次拉取 ' + seconds + ' 秒前') : '尚未拉取';
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-m]'), function (b) {
+      b.addEventListener('click', function () { mid = b.dataset.m; localStorage.setItem('proto_mid', mid); render(); });
+    });
+    document.getElementById('btnSound').addEventListener('click', function () {
+      var okk = UI.armAudio();
+      if (okk) { UI.beep(2); UI.toast('提示音正常，页面请保持打开', 'ok'); }
+      else UI.toast('该浏览器不允许播放，请换 Chrome/夸克', 'err');
+      render();
+    });
+    document.getElementById('btnNow').addEventListener('click', function () { poll(true); });
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-ready]'), function (b) {
+      b.addEventListener('click', function () {
+        try {
+          Store.markReady(b.dataset.ready);
+          UI.armAudio();
+          UI.toast('已确认，骑手可以来取了', 'ok');
+        } catch (e) { UI.err(e); }
+        render();
+      });
+    });
+    Array.prototype.forEach.call(screen.querySelectorAll('[data-short]'), function (b) {
+      b.addEventListener('click', function () {
+        UI.modal({
+          title: '上报缺货',
+          body: '<div class="field"><label class="fl">缺什么</label><input id="sTxt" placeholder="例：蓝莓卖完了，只有树莓"></div>',
+          okText: '提交给调度',
+          onOk: function (bx) {
+            Store.reportShortage(b.dataset.short, bx.querySelector('#sTxt').value || '缺货');
+            UI.toast('已上报，调度台会标红');
+            render();
+          }
+        });
+      });
+    });
+  }
+
+  function poll(manual) {
+    var res = Store.pollMerchant(mid);
+    lastPoll = Date.now(); seconds = 0;
+    if (res.fresh.length) {
+      var rang = UI.beep(2);
+      UI.toast('有 ' + res.fresh.length + ' 张新单' + (rang ? '' : '（请先点「声音自检」）'), 'ok');
+    } else if (manual) UI.toast('没有新单');
+    render();
+  }
+
+  setInterval(function () { seconds += 1; var el = document.getElementById('pollInfo'); if (el) el.textContent = lastPoll ? ('上次拉取 ' + seconds + ' 秒前') : '尚未拉取'; }, 1000);
+  setInterval(function () { poll(false); }, 12000);
+  UI.onData(function () { render(); });
+  render();
+  setTimeout(function () { poll(false); }, 400);
+})();
+</script>
+</body>
+</html>

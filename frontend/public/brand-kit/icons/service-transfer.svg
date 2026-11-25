@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="接送">
+  <rect width="96" height="96" rx="24" fill="#F5B301"/>
+  <path d="M22 58l7-20c2-6 7-9 13-9h12c6 0 11 3 13 9l7 20v13H22V58z" fill="#0D0E11"/>
+  <path d="M31 52h34l-4-12c-1-3-4-5-7-5H42c-3 0-6 2-7 5l-4 12z" fill="#F5B301"/>
+  <circle cx="35" cy="69" r="6" fill="#0D0E11" stroke="#F5B301" stroke-width="3"/>
+  <circle cx="61" cy="69" r="6" fill="#0D0E11" stroke="#F5B301" stroke-width="3"/>
+  <rect x="30" y="30" width="36" height="5" rx="2.5" fill="#F5B301"/>
+</svg>

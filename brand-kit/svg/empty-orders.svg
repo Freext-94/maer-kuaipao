@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" role="img" aria-label="暂无订单">
+  <rect width="480" height="320" rx="24" fill="#FFF8E6"/>
+  <rect x="92" y="118" width="180" height="120" rx="16" fill="#ffffff" stroke="#0D0E11" stroke-width="4"/>
+  <path d="M92 152h180" stroke="#0D0E11" stroke-width="4"/>
+  <rect x="116" y="170" width="80" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="116" y="192" width="120" height="10" rx="5" fill="#EEF2F6"/>
+  <rect x="116" y="214" width="60" height="10" rx="5" fill="#EEF2F6"/>
+  <circle cx="330" cy="118" r="54" fill="#F5B301"/>
+  <path d="M306 120c10-20 34-28 54-18 18 9 26 30 18 48-8 19-30 28-49 21-12-5-20-14-24-26" fill="none" stroke="#0D0E11" stroke-width="8" stroke-linecap="round"/>
+  <path d="M306 120l-12-6 2 14" fill="#0D0E11"/>
+  <g fill="#0D0E11">
+    <rect x="286" y="198" width="46" height="7" rx="3.5"/>
+    <rect x="272" y="214" width="60" height="7" rx="3.5"/>
+    <rect x="294" y="230" width="32" height="7" rx="3.5"/>
+  </g>
+</svg>

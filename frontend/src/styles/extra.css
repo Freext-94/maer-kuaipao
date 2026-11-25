@@ -1,0 +1,249 @@
+/* 由 app.css（原型样式）补充的少量前端专用件：
+   原型用 id 选择器和内联样式，组件化之后需要几个类；除此之外不改原型观感。 */
+
+/* ---------- 手机端外壳：真实部署是手机浏览器，不需要原型里的手机外框 ---------- */
+.mshell {
+  min-height: 100vh;
+  background: var(--bg);
+  padding-bottom: 26px;
+}
+.mshell > .mbar {
+  background: var(--accent);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-weight: 650;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.mshell > .mbar .sub {
+  font-weight: 400;
+  font-size: 12px;
+  opacity: .72;
+}
+.mbar-logout {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(13, 14, 17, .28);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 7px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.mbar-logout:active { background: rgba(13, 14, 17, .1); }
+.mshell > .mscreen {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px;
+}
+.mtabbar {
+  display: flex;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+}
+.mtabbar div {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.mtabbar div.on {
+  color: var(--brand);
+  font-weight: 650;
+}
+.mshell.with-tab > .mscreen { padding-bottom: 66px; }
+
+/* 商家/骑手/客户顶栏品牌标识与横幅 */
+.mbar .brand-logo-sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.m-banner {
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: #f6f1e8;
+}
+.m-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 商家/骑手与调度台一致的下单悬浮按钮 */
+.mshell .p-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  z-index: 45;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0d0e11;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  width: auto;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 20px rgba(245, 179, 1, .42), 0 2px 0 rgba(13, 14, 17, .16);
+  cursor: pointer;
+}
+.mshell .p-fab:active { transform: translateY(1px); }
+@media (min-width: 560px) {
+  .mshell .p-fab { right: calc(50% - 260px + 16px); }
+}
+
+/* ---------- 登录页 ---------- */
+.login-stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-box {
+  width: min(400px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 26px;
+}
+
+/* ---------- 可复制的免登链接 ---------- */
+.link-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.link-row input {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: #334155;
+  background: #f8fafc;
+}
+
+/* ---------- 凭证缩略图 ---------- */
+.thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.thumbs a {
+  display: block;
+  width: 78px;
+  height: 78px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+.thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.shot-hint {
+  font-size: 12px;
+  color: var(--ok);
+}
+
+/* ---------- 录单弹窗底部：操作次数 ---------- */
+.op-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.op-line b {
+  font-size: 15px;
+  color: var(--ink);
+}
+.op-line.heavy b {
+  color: var(--danger);
+}
+
+/* ---------- 台账：客户行（复用 .oc 的左边框语义） ---------- */
+.crow {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  cursor: pointer;
+}
+.crow:hover { background: #fafcfc; }
+.crow.on { background: #f0fdfa; }
+.crow.owe { border-left-color: #f59e0b; }
+.crow.over { border-left-color: #ef4444; }
+.crow.clear { border-left-color: #22c55e; }
+
+/* ---------- 对账单：手机长图预览 ---------- */
+.bill-sheet {
+  max-width: 430px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.bill-sheet .bh {
+  background: var(--brand);
+  color: var(--ink);
+  padding: 16px 18px;
+}
+.bill-sheet .bh b { font-size: 16px; }
+.bill-sheet .bh div { font-size: 12px; opacity: .9; margin-top: 2px; }
+.bill-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #f0fdfa;
+  border-bottom: 1px solid var(--line);
+}
+.bill-grid > div {
+  padding: 10px 14px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.bill-grid .v {
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.bill-body { padding: 12px 14px; }
+.bill-foot {
+  padding: 12px 14px;
+  border-top: 1px dashed var(--line);
+}
+
+/* ---------- 看板列数多的时候别让顶 bar 挤成一团 ---------- */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  /* 侧边栏不再隐藏：移动端改成顶部横向导航，否则手机上无法切页（见 app.css 末尾） */
+  .wrap, .wrap.wide { padding: 12px; }
+}

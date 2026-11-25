@@ -1,0 +1,21 @@
+{
+  "name": "paotui-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "同城跑腿 Track A 前端（调度台 / 商家端 / 骑手端 / 客户端 / 对账单免登页）",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7"
+  }
+}

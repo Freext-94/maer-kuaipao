@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>同城跑腿 · 可点原型导航</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+function entry(href, tag, title, desc) {
+  return '<a class="card" href="' + href + '"><span class="k">' + tag + '</span><b>' + title + '</b>' +
+    '<span class="small muted">' + desc + '</span></a>';
+}
+
+UI.page({
+  title: '原型导航与演示剧本',
+  active: 'index',
+  sub: '纯静态，数据存在本机浏览器',
+  actions: '<button class="btn" id="topReset">重置演示数据</button>',
+  body: '<div class="wrap" style="max-width:1180px">' +
+
+    '<div class="hero" style="margin-bottom:18px">' +
+    '<h1>同城跑腿线上工具 · 可点原型</h1>' +
+    '<p>把「电话接单 → 通知商家备货 → 取货垫付 → 派送 → 收款/挂账 → 对账」整条流程做成能点的东西。' +
+    '<b>数字是真算的</b>：欠款余额由流水推导，改货款会新增冲正流水，账不平会在每一页顶部红字报警。' +
+    '先点一遍，再决定要不要写后端。</p>' +
+    '<div class="row" style="margin-top:14px;gap:8px;flex-wrap:wrap">' +
+    '<span class="badge green">Track A 无需任何资质</span>' +
+    '<span class="badge blue">Track B 需个体工商户</span>' +
+    '<span class="badge amber">1–3 人自送 / 日均 &lt;50 单</span></div></div>' +
+
+    '<div class="cards" style="margin-bottom:22px">' +
+    entry('dispatch.html', 'Track A · 内部', '调度台（PC）', '电话录单一屏、按状态分列的看板、订单详情含状态轨迹/通知记录/资金流水、货款争议冲正、取消时的垫付追回硬卡。') +
+    entry('merchant.html', 'Track A · 商家用', '商家端（手机）', '免登链接常驻页 + 12 秒轮询 + 提示音，一屏一个大按钮「备货完成」。这里演示了为什么不能只靠推送。') +
+    entry('rider.html', 'Track A · 骑手用', '骑手端（手机）', '取货时录实际垫付 + 拍小票，送达拍照，之后货款锁定不可改。') +
+    entry('ledger.html', 'Track A · 核心', '客户欠款台账', '余额 = Σ流水、FIFO 核销、指定冲抵某单、额度红线、争议挂账、每笔可倒查操作人。') +
+    entry('bill.html', 'Track A · 收款武器', '月结对账单', '期初 + 逐笔 + 期末，客户免登录只读链接、「我确认无误」留证、还款入口。') +
+    entry('customer.html', 'Track B · 需执照', '客户自助下单', '这一页存在的唯一目的：让你判断为它办个体工商户值不值。含超额自动拦截。') +
+    '</div>' +
+
+    '<div style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px;align-items:start">' +
+
+    '<div class="stack">' +
+    '<div class="panel"><div class="hd"><h2>演示剧本（约 8 分钟，建议开两个窗口）</h2>' +
+    '<span class="right small muted">左：调度台 右：商家端手机页</span></div><div class="bd">' +
+    '<ol class="steps">' +
+    '<li><b>先把商家页挂着。</b>新开一个窗口进<a href="merchant.html">商家端</a>，身份选<b>瑞雪生鲜超市</b>，先点「🔊 声音自检」（浏览器硬规定：没有一次用户点击就不许出声），然后<b>让这个窗口开着别动</b>。' +
+    '<div class="small muted">它会每 12 秒自己拉一次单。这一步是整件事的关键：真实场景里商家手机就是这么挂着的。</div></li>' +
+    '<li><b>电话录单。</b>回到调度台点「＋电话录单」→ 客户选<b>王姐（赊账）</b>→ 地址 → 商家<b>瑞雪生鲜超市</b>→ 内容"3 个西瓜 + 一提抽纸"→ 估价 86 → 骑手小李 → 提交。弹窗会数你点了几下，王姐的欠款红线也会当场跳出来。' +
+    '<div class="small muted">≤12 秒后，那个挂着的商家窗口会<b>响铃 + 卡片高亮</b>（想马上听就点「立即拉取」）→ 点「备货完成」→ 调度台卡片自己变蓝。</div></li>' +
+    '<li><b>骑手取货。</b>进<a href="rider.html">骑手端</a>（小李）→「已到店取货」→ 实付货款改成 <b>92.40</b>（比估价高，这是常态）→ 拍照（模拟）→ 确认。' +
+    '<div class="small muted">此刻货款被锁死，之后只能靠冲正改，改不动原值。</div></li>' +
+    '<li><b>结单只收一半。</b>骑手端「开始配送」→「已送达」→ 拍照 → 收款选"当场收一部分"填 <b>50</b> → 确认。' +
+    '<div class="small muted">本单挂账 50.40。到<a href="ledger.html">台账</a>看王姐那笔流水怎么被 FIFO 核销的。</div></li>' +
+    '<li><b>争议测试。</b>回调度台点这张单 → 抽屉里「货款争议（冲正）」→ 差额 -4.40 → 保存。' +
+    '<div class="small muted">小票金额仍是 92.40，应收自动变 96.00，顶部恒等式仍是绿的。</div></li>' +
+    '<li><b>取消测试 + 对账单。</b>找一张<b>已取货</b>的单点「取消」→ 什么都不填直接确认 → <b>会被拒绝</b>（已垫付的钱没着落）→ 勾「确认损失」才放行。' +
+    '最后到<a href="bill.html">对账单</a>生成王姐本月账单 → 点「我确认无误」→ 再点「去付款」把钱收掉。</li>' +
+    '</ol>' +
+    '<div class="note" style="margin-top:6px">玩坏了就点右上「重置演示数据」。所有页面顶部那条"恒等式平"是自检：只要它变红，就是我算错了，不是你操作错了。</div>' +
+    '<div class="alert info small" style="margin-top:10px"><b>打开方式：</b>直接双击 index.html 就能用（每页 2.5 秒自己重新读一次本机数据）。' +
+    '想让调度台和商家窗口<b>秒级互相联动</b>，就在 prototype 目录下跑 <code>python -m http.server 5178</code> 再开 <code>http://127.0.0.1:5178/index.html</code> ——' +
+    '用 file:// 打开时浏览器不发跨标签的 storage 事件，联动只能等下一次自轮询。</div>' +
+    '</div></div>' +
+
+    '<div class="panel"><div class="hd"><h2>为什么通知不能只靠推送</h2></div><div class="bd small">' +
+    '<table class="tbl"><tr><th>通道</th><th>真实限制</th><th>结论</th></tr>' +
+    '<tr><td>小程序订阅消息</td><td>用户点一次授权才给一条额度；单次最多 3 个模板；长期订阅只给政务/医疗等邀约类目，商业类目申请不到</td><td>只能当锦上添花，额度不足时是<b>静默失败</b></td></tr>' +
+    '<tr><td>服务号模板消息</td><td>2021-04-30 已下线</td><td>不存在这条路</td></tr>' +
+    '<tr><td>企业微信群机器人</td><td>20 条/分钟，且<b>只能加内部群</b>，外部群没有官方入口</td><td>只能给自己人播报</td></tr>' +
+    '<tr><td>短信</td><td>签名需企业/个体户实名报备 5–10 工作日；通知类 50 条/天/号码</td><td>当超时兜底</td></tr>' +
+    '<tr><td>语音外呼</td><td>同一资质 20 通/24 小时</td><td>只给高价值单</td></tr>' +
+    '<tr><td><b>常驻页轮询 + 提示音</b></td><td>无配额；但要求用系统浏览器"添加到桌面"，微信内置浏览器切后台会暂停 JS 与音频</td><td><b>主路径</b></td></tr></table>' +
+    '<div class="muted" style="margin-top:10px">所以商家端的设计是：页面挂机为主，推送为辅，每一次触达都落一条"通知记录"——月底能一条 SQL 看出到底哪个渠道真的管用。</div>' +
+    '</div></div>' +
+    '</div>' +
+
+    '<div class="stack">' +
+    '<div class="panel"><div class="hd"><h2>一单到底要录多少东西</h2><span class="right small muted">验收问题 3 的证据</span></div><div class="bd">' +
+    '<table class="tbl"><tr><th>环节</th><th>必填</th><th>能不能省</th></tr>' +
+    '<tr><td>电话录单</td><td class="small">客户 / 地址 / 商家 / 内容 / 估价 / 骑手<br><span class="muted">跑腿费默认 8，一般不用动</span></td><td class="small">6 项。内容和估价不能省（后面要比对实付）</td></tr>' +
+    '<tr><td>取货</td><td class="small">实付货款 / 垫付方式 / 小票照</td><td class="small"><b>方式可默认现金</b>；小票照是扯皮时唯一证据，建议保留</td></tr>' +
+    '<tr><td>送达</td><td class="small">送达照 / 实收金额 / 方式</td><td class="small"><b>照只在对无接触放置时必填</b>；当面交接可免；实收可挪到"日结"统一录</td></tr>' +
+    '<tr><td colspan="2" class="small"><b>合计</b></td><td class="small"><b>10–13 项（含 3 次拍照）</b>—— 超过"每天能坚持"的线，需要按右列砍</td></tr></table>' +
+    '<div class="note" style="margin-top:10px">这张表是我故意做丑给你看的：原型阶段最值钱的结论就是"哪几项其实没人会填"。</div>' +
+    '</div></div>' +
+
+    '<div class="panel"><div class="hd"><h2>请你逐条给结论（验收标准）</h2></div><div class="bd small">' +
+    '<table class="tbl"><tr><th>#</th><th>问题</th><th>怎么判</th></tr>' +
+    '<tr><td>1</td><td>电话录单是否比现在手写/Excel 快？</td><td>你自己连录 3 单计时；弹窗显示的操作次数 ≤8</td></tr>' +
+    '<tr><td>2</td><td>7 个状态够不够 / 会不会太细？看板该分几列？</td><td>口述今天真实 12 单，我往看板上放，放不进去或多余的都是错</td></tr>' +
+    '<tr><td>3</td><td>记账动作能不能天天坚持？</td><td>看左边"一单要录多少东西"，告诉我砍哪几项</td></tr>' +
+    '<tr><td>4</td><td>商家会不会点"备货完成"？</td><td>把商家页链接发给 1–2 家合作商家，看他们能不能自己用起来</td></tr>' +
+    '<tr><td>5</td><td>值不值得为"客户自助下单 + 在线收款"办个体工商户？</td><td>点一遍客户端 + 对账单还款后拍板</td></tr></table>' +
+    '<div class="muted" style="margin-top:10px">哪条不通过我就改原型（改 HTML 是半小时级别的事），改完再动后端。绝不带着没验证的流程去写正式工程。</div>' +
+    '</div></div>' +
+
+    '<div class="panel"><div class="hd"><h2>原型 ↔ 正式实现对照</h2></div><div class="bd small">' +
+    '<div class="kv">' +
+    '<dt>状态机</dt><dd><code>PENDING_DISPATCH → PENDING_PREP → READY_FOR_PICKUP → PICKED_UP → DELIVERING → DELIVERED → FINISHED</code>，任意非终态可 CANCELLED。正式实现落 <code>t_order.status</code> + <code>t_order_status_log</code></dd>' +
+    '<dt>台账</dt><dd><code>t_ledger_entry</code> 只 INSERT，<code>t_ledger_allocation</code> 做 FIFO 核销，余额是派生值，不给 setter</dd>' +
+    '<dt>垫付</dt><dd><code>t_advance.amount_fen / recovered_fen / loss_fen</code>；未结清的垫付不允许订单进终态</dd>' +
+    '<dt>通知</dt><dd><code>t_notify_record</code>（含 <code>no_quota</code> / <code>sig_pending</code> 等状态）+ <code>t_sub_quota</code> 额度入库</dd>' +
+    '<dt>金额</dt><dd>全站整数分，与后端 <code>BIGINT</code> 一一对应，杜绝浮点误差</dd>' +
+    '<dt>自检</dt><dd><code>selftest.js</code> 45 条断言（含 200 单随机收款/冲正/取消后恒等式仍平），正式实现照搬这套用例</dd></div>' +
+    '<div class="muted" style="margin-top:10px">调研结论：市面开源跑腿/外卖系统里 <code>垫付 / 欠款 / 赊账 / 月结</code> 命中 0 条，也都没有"代客录电话单"，所以自建；但订单状态机和余额流水的做法参考了 yshop-drink（MIT）与 DSPlatform-open（Apache-2.0）。</div>' +
+    '</div></div>' +
+    '</div>' +
+
+    '</div></div>'
+});
+document.getElementById('topReset').addEventListener('click', UI.reset);
+</script>
+</body>
+</html>

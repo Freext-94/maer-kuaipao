@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>客户欠款台账 · 同城跑腿原型</title>
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  var sel = null;
+
+  UI.page({
+    title: '客户欠款台账',
+    active: 'ledger',
+    sub: '余额只由流水推导，任何调整都是新增一条流水',
+    actions: '<a class="btn" href="bill.html">生成月结对账单 →</a>',
+    body: '<div class="wrap"><div id="vbar"></div><div id="sum" class="grid3" style="margin-bottom:14px"></div>' +
+      '<div style="display:grid;grid-template-columns:390px 1fr;gap:14px;align-items:start">' +
+      '<div class="panel"><div class="hd"><h2>客户</h2><span class="right small muted">按欠款排序</span></div><div class="bd" style="padding:0"><div id="cust"></div></div></div>' +
+      '<div class="panel"><div class="hd"><h2 id="dTitle">逐笔流水</h2><div class="right row" id="dActions"></div></div><div class="bd" id="detail"></div></div>' +
+      '</div></div>'
+  });
+
+  function render() {
+    var s = Store.get();
+    document.getElementById('vbar').innerHTML = UI.verifyBar();
+    var rows = s.customers.map(function (c) {
+      var bal = Store.customerBalance(s, c.id);
+      var last = s.orders.filter(function (o) { return o.customer_id === c.id; }).sort(function (a, b) { return b.created_at - a.created_at; })[0];
+      var age = aging(s, c.id);
+      return { c: c, bal: bal, last: last, age: age };
+    }).sort(function (a, b) { return b.bal - a.bal; });
+
+    var totalOwed = rows.reduce(function (sum, r) { return sum + Math.max(0, r.bal); }, 0);
+    var over = rows.filter(function (r) { return r.bal > r.c.credit_limit_fen && r.c.billing_cycle !== 'cod'; });
+    var advAll = s.advances.reduce(function (sum, a) { return sum + a.amount_fen; }, 0);
+    var advBack = s.advances.reduce(function (sum, a) { return sum + (a.recovered_fen || 0); }, 0);
+    document.getElementById('sum').innerHTML =
+      stat('客户欠款合计', UI.money(totalOwed), rows.filter(function (r) { return r.bal > 0; }).length + ' 位客户有挂账') +
+      stat('超额客户', over.length + ' 位', over.length ? over.map(function (r) { return r.c.name; }).join('、') : '无人超过自设额度') +
+      stat('累计垫付 / 已回款', UI.money(advAll) + ' / ' + UI.money(advBack), '垫付未回 ' + UI.money(advAll - advBack) + '，这是老板压进去的现金');
+
+    document.getElementById('cust').innerHTML = rows.map(function (r) {
+      var overFlag = r.bal > r.c.credit_limit_fen && r.c.billing_cycle !== 'cod';
+      return '<div class="oc" data-c="' + r.c.id + '" style="border-radius:0;border:0;border-left:3px solid ' +
+        (r.bal > 0 ? (overFlag ? '#ef4444' : '#f59e0b') : '#e2e8ef') + ';border-bottom:1px solid var(--line);cursor:pointer' +
+        (sel === r.c.id ? ';background:#f0fdfa' : '') + '">' +
+        '<div class="t"><b>' + UI.esc(r.c.name) + '</b><span class="no">' + UI.esc(r.c.phone) + '</span>' +
+        '<span class="right num strong" style="color:' + (r.bal > 0 ? 'var(--danger)' : 'var(--ok)') + '">' + UI.money(r.bal) + '</span></div>' +
+        '<div class="f"><span class="badge slate">' + cyc(r.c.billing_cycle) + '</span>' +
+        '<span class="badge ghost">额度 ' + UI.money(r.c.credit_limit_fen) + '</span>' +
+        (r.age.days > 30 && r.bal > 0 ? '<span class="badge red">最老挂账 ' + r.age.days + ' 天</span>' : '') +
+        (r.last ? '<span class="right small muted">最近 ' + new Date(r.last.created_at).toLocaleDateString('zh-CN') + '</span>' : '') +
+        '</div></div>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('#cust [data-c]'), function (el) {
+      el.addEventListener('click', function () { sel = el.dataset.c; render(); });
+    });
+
+    if (!sel) sel = (rows.filter(function (r) { return r.bal > 0; })[0] || rows[0]).c.id;
+    detail(s, sel);
+  }
+
+  function stat(k, v, sub) {
+    return '<div class="panel"><div class="bd"><div class="muted small">' + k + '</div>' +
+      '<div style="font-size:22px;font-weight:700" class="num">' + v + '</div>' +
+      '<div class="small muted">' + sub + '</div></div></div>';
+  }
+  function cyc(v) { return { cod: '货到付款', on_credit: '赊账', monthly: '月结' }[v] || v; }
+  function aging(s, cid) {
+    var opens = Store.openChargesOf(s, cid);
+    if (!opens.length) return { days: 0 };
+    var oldest = opens.reduce(function (m, x) { return Math.min(m, x.entry.occurred_at); }, Date.now());
+    return { days: Math.round((Date.now() - oldest) / 86400000) };
+  }
+
+  function detail(s, cid) {
+    var c = UI.customer(s, cid);
+    var bal = Store.customerBalance(s, cid);
+    document.getElementById('dTitle').innerHTML = UI.esc(c.name) + ' <span class="muted small">' + UI.esc(c.phone) + ' · ' + cyc(c.billing_cycle) + '</span>';
+    document.getElementById('dActions').innerHTML =
+      '<button class="btn sm" data-x="pay">登记收款</button>' +
+      '<button class="btn sm" data-x="limit">调整额度</button>' +
+      '<a class="btn sm pri" href="bill.html?c=' + cid + '">生成对账单</a>';
+
+    var list = Store.entriesOf(s, cid);
+    var rows = list.slice().reverse().map(function (e) {
+      var o = e.order_id ? UI.order(s, e.order_id) : null;
+      var allocs = s.allocations.filter(function (a) { return a.payment_entry_id === e.id && !a.prepaid; });
+      var how = e.type === 'payment'
+        ? (allocs.length ? '冲抵：' + allocs.map(function (a) {
+          var oo = a.order_id ? UI.order(s, a.order_id) : null;
+          return (oo ? oo.order_no : '整笔') + ' ' + UI.money(a.allocated_fen);
+        }).join('；') : '转预收')
+        : (o ? o.order_no + '｜' + UI.esc(o.items[0].text.slice(0, 16)) : '—');
+      return '<tr><td class="nowrap small">' + new Date(e.occurred_at).toLocaleString('zh-CN', { hour12: false }) + '</td>' +
+        '<td><span class="badge ' + tcol(e.type) + '">' + tname(e.type) + '</span></td>' +
+        '<td class="num ' + (e.amount_fen > 0 ? '' : 'strong') + '" style="color:' + (e.amount_fen > 0 ? 'var(--danger)' : 'var(--ok)') + '">' +
+        (e.amount_fen > 0 ? '+' : '') + UI.money(e.amount_fen) + '</td>' +
+        '<td class="small">' + how + '</td>' +
+        '<td class="small muted">' + UI.esc(e.note) + '</td>' +
+        '<td class="small muted nowrap">' + UI.esc(e.operator) + '</td></tr>';
+    }).join('');
+
+    var opens = Store.openChargesOf(s, cid);
+    var ex = s.exceptions.filter(function (x) { return (UI.order(s, x.order_id) || {}).customer_id === cid; });
+
+    document.getElementById('detail').innerHTML =
+      '<div class="row" style="gap:26px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<div><div class="muted small">当前欠款（= Σ流水）</div><div class="big-amt" style="color:' + (bal > 0 ? 'var(--danger)' : 'var(--ok)') + '">' + UI.money(bal) + '</div></div>' +
+      '<div><div class="muted small">额度</div><div class="num" style="font-size:18px;font-weight:650">' + UI.money(c.credit_limit_fen) + '</div>' +
+      '<div class="small muted">' + (bal > c.credit_limit_fen ? '已超额，录单不拦、结单前建议先收款' : '剩余可用 ' + UI.money(c.credit_limit_fen - bal)) + '</div></div>' +
+      '<div><div class="muted small">未收清单笔</div><div class="num" style="font-size:18px;font-weight:650">' + opens.length + '</div>' +
+      '<div class="small muted">最老 ' + aging(s, cid).days + ' 天</div></div>' +
+      '<div><div class="muted small">争议中</div><div class="num" style="font-size:18px;font-weight:650">' + UI.money(Store.disputedOf(s, cid)) + '</div>' +
+      '<div class="small muted">' + ex.filter(function (x) { return x.status === 'open'; }).length + ' 笔待处理</div></div>' +
+      '</div>' +
+      (opens.length ? '<div class="alert info small" style="margin-bottom:12px">未收齐的单据：' + opens.map(function (x) {
+        var oo = x.entry.order_id ? UI.order(s, x.entry.order_id) : null;
+        return (oo ? oo.order_no : '—') + ' 欠 ' + UI.money(x.open_fen);
+      }).join('｜') + '（收款默认先冲最老的一笔；客户说"这是某某单的钱"时可在收款里指定）</div>' : '') +
+      '<table class="tbl"><tr><th>时间</th><th>类型</th><th class="n">金额</th><th>关联</th><th>备注</th><th>操作人</th></tr>' +
+      (rows || '<tr><td colspan="6" class="muted center">暂无流水</td></tr>') + '</table>' +
+      '<div class="note" style="margin-top:12px">这张表<b>只增不改</b>：货款填错了要"冲正"（多加一条流水），客户少给了要"减免"，收款只能"再收一笔"。' +
+      '这样月底对账时任何数字都能倒查到是谁在几点改的 —— 这是赊账模式唯一能守住的东西。</div>';
+
+    Array.prototype.forEach.call(document.querySelectorAll('#dActions [data-x]'), function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.x === 'pay') payForm(c);
+        else limitForm(c);
+      });
+    });
+  }
+
+  function payForm(c) {
+    var s = Store.get();
+    var bal = Store.customerBalance(s, c.id);
+    var opens = Store.openChargesOf(s, c.id);
+    UI.modal({
+      title: '登记收款 · ' + UI.esc(c.name),
+      body: '<div class="muted small" style="margin-bottom:10px">当前欠款 <b class="num">' + UI.money(bal) + '</b></div>' +
+        '<div class="grid2"><div class="field"><label class="fl">金额（元）</label><input id="rAmt" value="' + UI.yuan(bal) + '" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">方式</label><select id="rM"><option>微信转账</option><option>现金</option><option>支付宝</option></select></div></div>' +
+        '<div class="field"><label class="fl">冲抵哪张单？</label><select id="rFor"><option value="">按时间先冲旧账（默认）</option>' +
+        opens.map(function (x) {
+          var o = x.entry.order_id ? UI.order(s, x.entry.order_id) : null;
+          return o ? '<option value="' + o.id + '">' + o.order_no + '（欠 ' + UI.money(x.open_fen) + '）</option>' : '';
+        }).join('') + '</select></div>' +
+        (bal <= 0 ? '<div class="alert warn small">该客户当前不欠款，这笔会变成<b>预收款</b>（余额变负），下次下单可直接抵扣。</div>' : ''),
+      okText: '确认收款',
+      onOk: function (bx) {
+        Store.receivePayment(c.id, bx.querySelector('#rAmt').value, bx.querySelector('#rM').value, bx.querySelector('#rFor').value);
+        UI.toast('已入账，余额 → ' + UI.money(Store.customerBalance(Store.get(), c.id)), 'ok');
+        render();
+      }
+    });
+  }
+
+  function limitForm(c) {
+    var s = Store.get();
+    UI.modal({
+      title: '调整信用额度 · ' + UI.esc(c.name),
+      body: '<div class="field"><label class="fl">额度（元）— 当前 ' + UI.yuan(c.credit_limit_fen) + '</label>' +
+        '<input id="lV" value="' + UI.yuan(c.credit_limit_fen) + '" inputmode="decimal"></div>' +
+        '<div class="field"><label class="fl">原因</label><input id="lR" placeholder="例：连续 3 个月按时结清，提到 500"></div>' +
+        '<div class="note">额度只是<b>提醒线</b>，不是硬拦截：老客户关系上不好直接不给送，但超额的单子会在看板上标红，结单时也会提示。</div>',
+      okText: '保存',
+      onOk: function (bx) {
+        var st = Store.get();
+        var target = UI.customer(st, c.id);
+        target.credit_limit_fen = Store.yuan2fen(bx.querySelector('#lV').value);
+        st.statusLog.push({ order_id: null, from: null, to: null, actor: '老板', role: 'staff', at: Date.now(), reason: '调整额度：' + target.name + ' → ' + UI.money(target.credit_limit_fen) + '（' + (bx.querySelector('#lR').value || '未填原因') + '）' });
+        Store.commit(st);
+        UI.toast('额度已更新为 ' + UI.money(target.credit_limit_fen), 'ok');
+        render();
+      }
+    });
+  }
+
+  function tname(t) { return { charge: '挂账', payment: '收款', adjust: '冲正', waive: '减免', refund: '退款' }[t] || t; }
+  function tcol(t) { return { charge: 'amber', payment: 'green', adjust: 'violet', waive: 'blue', refund: 'red' }[t] || 'slate'; }
+
+  UI.onData(render);
+  render();
+})();
+</script>
+</body>
+</html>

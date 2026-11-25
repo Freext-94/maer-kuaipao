@@ -1,0 +1,55 @@
+server:
+  port: 8080
+  tomcat:
+    max-swallow-size: 20MB
+
+spring:
+  application:
+    name: paotui
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 12MB
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+sa-token:
+  token-name: X-Auth-Token
+  is-read-cookie: false
+  is-concurrent: true
+  token-style: uuid
+  # 30 天不掉线：这种内部工具最烦天天登录
+  timeout: 2592000
+  active-timeout: -1
+
+paotui:
+  # 小票/送达照落本地磁盘，NAS 上把这个目录挂到共享存储即可
+  upload-dir: ./data/uploads
+  # 首次启动建的老板账号，登录后请立刻改密码
+  bootstrap:
+    staff-phone: "13800000000"
+    staff-name: 老板
+    staff-password: ${PAOTUI_ADMIN_PASSWORD:}

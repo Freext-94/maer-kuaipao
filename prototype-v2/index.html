@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D0E11">
+<title>马儿快跑 · 原型导航</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app-frame">
+  <div class="app-screen">
+    <header class="brand-hero">
+      <img class="brand-hero-logo" src="assets/brand/logo-full.png" alt="马儿快跑">
+      <div class="brand-hero-slogan">马儿跑得快，诚信赢天下</div>
+      <div class="brand-hero-sub">自营同城跑腿 · 可点原型 · 数据存在本机浏览器</div>
+    </header>
+
+    <main class="page-body nav-body">
+
+      <section class="section">
+        <div class="section-title">演示账号 <span class="more">手机号 + 密码</span></div>
+        <div class="card acct" style="padding:2px 14px">
+          <div class="list-row">
+            <div class="grow">
+              <b>老板</b> <span class="badge amber">超级管理员</span>
+              <div class="meta num">13800000000 · 原型演示账号</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="grow">
+              <b>刘姐</b> <span class="badge blue">客户 + 商家 + 骑手</span>
+              <div class="meta num">13900000001 · 123456</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="grow">
+              <b>瑞雪超市</b> <span class="badge green">商家</span>
+              <div class="meta num">13900000002 · 123456</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="grow">
+              <b>小李</b> <span class="badge violet">骑手</span>
+              <div class="meta num">13900000003 · 123456</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="grow">
+              <b>王姐</b> <span class="badge cyan">客户</span>
+              <div class="meta num">13900000004 · 123456</div>
+            </div>
+          </div>
+          <div class="list-row">
+            <div class="grow">
+              <b>小张</b> <span class="badge slate">受限管理员</span>
+              <div class="meta num">13900000005 · 123456</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">管理模块 <span class="more">调度台</span></div>
+        <div class="entry-grid">
+          <a class="entry dark" href="dispatch.html">
+            <span class="ic">调</span>
+            <b>看板工作台</b>
+            <span>派单、录单、订单流转一屏看完</span>
+          </a>
+          <a class="entry" href="dispatch.html?view=orders">
+            <span class="ic">单</span>
+            <b>订单管理</b>
+            <span>按状态筛单，取货、送达、结单</span>
+          </a>
+          <a class="entry" href="billing.html">
+            <span class="ic">账</span>
+            <b>账单管理</b>
+            <span>应收已收、收款流水、生成账单图</span>
+          </a>
+          <a class="entry" href="users.html">
+            <span class="ic">权</span>
+            <b>用户及权限</b>
+            <span>多角色、商家绑定、权限矩阵</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">全部端入口</div>
+        <div class="entry-grid three">
+          <a class="entry mini" href="merchant.html"><span class="ic">商</span><b>商家端</b></a>
+          <a class="entry mini" href="rider.html"><span class="ic">骑</span><b>骑手端</b></a>
+          <a class="entry mini" href="customer.html"><span class="ic">客</span><b>客户端</b></a>
+          <a class="entry mini" href="debts.html"><span class="ic">账</span><b>客户账单</b></a>
+          <a class="entry mini" href="brand.html"><span class="ic">品</span><b>品牌页</b></a>
+          <a class="entry mini" href="settings.html"><span class="ic">设</span><b>设置</b></a>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">评审顺序 <span class="more">约 10 分钟</span></div>
+        <div class="card">
+          <ol class="steps">
+            <li><b>登录选工作区。</b>用「刘姐」看多工作区切换，用「小张」看受限管理员被拦。</li>
+            <li><b>多商家录单。</b>工作台点右下角录单，检索客户 / 商家，也可内联新建；5 类服务表单不同，跑腿费默认 10 元。</li>
+            <li><b>备货 / 按组取货。</b>商家端确认备货；骑手端看待取货，按商家分组取货，小票选填。</li>
+            <li><b>结单收款。</b>送达后结单，只收一半，订单明细里看应收 / 已收 / 未收。</li>
+            <li><b>账单与出图。</b>账单页筛未收，生成账单图片；客户账单里看欠款、登记还款、复制催缴话术。</li>
+            <li><b>用户权限。</b>超管改权限矩阵，换受限账号验证入口消失。</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="card" id="sessionCard" style="display:none">
+          <div class="row">
+            <span class="badge green">当前登录</span>
+            <span class="grow small strong" id="sessionText"></span>
+          </div>
+          <a class="btn pri block" id="sessionGo" href="login.html" style="margin-top:10px">进入当前工作区</a>
+        </div>
+
+        <div class="nav-actions">
+          <a class="btn pri block" href="login.html">去登录 / 选工作区</a>
+          <button class="btn ghost block" id="resetBtn" type="button">重置演示数据</button>
+        </div>
+        <p class="center small muted" style="margin:12px 0 0">演示数据只存在本机浏览器；点重置即可回到初始状态。</p>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  var sess = null, me = null;
+  try {
+    sess = Store.session();
+    me = sess ? Store.me() : null;
+  } catch (e) { sess = null; me = null; }
+
+  if (sess && me) {
+    var names = { admin: '调度台', merchant: '商家工作台', rider: '骑手端', customer: '客户端' };
+    var pages = { admin: 'dispatch.html', merchant: 'merchant.html', rider: 'rider.html', customer: 'customer.html' };
+    var card = document.getElementById('sessionCard');
+    document.getElementById('sessionText').textContent = me.name + ' · ' + (names[sess.type] || sess.type);
+    document.getElementById('sessionGo').href = pages[sess.type] || 'login.html';
+    card.style.display = '';
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    if (!confirm('重置后所有演示订单、账单、用户都回到初始状态，确定吗？')) return;
+    try { Store.reset(); } catch (e) { UI.err(e); return; }
+    location.reload();
+  });
+})();
+</script>
+</body>
+</html>

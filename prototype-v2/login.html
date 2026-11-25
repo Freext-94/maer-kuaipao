@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D0E11">
+<title>登录 · 马儿快跑</title>
+<link rel="icon" href="assets/brand/favicon-32.png">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app-frame">
+  <div class="app-screen">
+    <div class="page">
+      <main class="page-body" style="padding:18px 14px 26px">
+        <section class="brand-hero" style="border:1px solid var(--line);border-radius:var(--r-lg);margin-bottom:14px">
+          <img class="brand-hero-logo" src="assets/brand/logo-full.png" alt="马儿快跑">
+          <div class="brand-hero-slogan">马儿快跑，诚信赢天下</div>
+          <div class="brand-hero-sub">自营同城跑腿 · 手机号 + 密码登录</div>
+        </section>
+        <div class="card" id="card"></div>
+        <p class="center small muted" style="margin:14px 0 0">可点原型 · 数据存在本机浏览器 · 不含真实支付</p>
+      </main>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script src="assets/store.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+  var forceSwitch = params.get('switch') === '1';
+  var next = params.get('next') || '';
+
+  var ROLE_NAME = { admin: '调度台', merchant: '商家工作台', rider: '骑手端', customer: '客户端' };
+  var ROLE_PAGE = { admin: 'dispatch.html', merchant: 'merchant.html', rider: 'rider.html', customer: 'customer.html' };
+  var ROLE_PAGES = {
+    admin: ['dispatch.html', 'billing.html', 'users.html', 'settings.html', 'debts.html'],
+    merchant: ['merchant.html'],
+    rider: ['rider.html'],
+    customer: ['customer.html']
+  };
+
+  if (forceSwitch) {
+    try { Store.logout(); } catch (e) { /* ignore */ }
+    try {
+      params.delete('switch');
+      var qs = params.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    } catch (e) { /* ignore */ }
+  }
+
+  var card = document.getElementById('card');
+
+  var DEMOS = [
+    { phone: '13800000000', pwd: '请查看本地原型演示说明', name: '老板', tag: '超级管理员', color: 'amber' },
+    { phone: '13900000001', pwd: '123456', name: '刘姐', tag: '客户 + 商家 + 骑手', color: 'blue' },
+    { phone: '13900000002', pwd: '123456', name: '瑞雪超市', tag: '商家', color: 'green' },
+    { phone: '13900000003', pwd: '123456', name: '小李', tag: '骑手', color: 'violet' },
+    { phone: '13900000004', pwd: '123456', name: '王姐', tag: '客户', color: 'cyan' },
+    { phone: '13900000005', pwd: '123456', name: '小张', tag: '管理员（受限）', color: 'slate' }
+  ];
+
+  function pageOf(type) { return ROLE_PAGE[type] || 'index.html'; }
+
+  /* ?next= 只放行当前端的页面，跨端或站外地址一律忽略 */
+  function safeNext(type, raw) {
+    if (!raw) return '';
+    var target = String(raw);
+    if (/^[a-z]+:/i.test(target) || target.indexOf('//') === 0) return '';
+    var file = target.split('#')[0].split('?')[0];
+    var allow = ROLE_PAGES[type] || [];
+    return allow.indexOf(file) >= 0 ? target : '';
+  }
+
+  function renderLogin() {
+    var s = null, me = null;
+    try {
+      s = Store.session();
+      me = s ? Store.me() : null;
+    } catch (e) { s = null; me = null; }
+
+    if (me && s && !forceSwitch) {
+      card.innerHTML =
+        '<h2>已经登录</h2>' +
+        '<p class="small muted">' + UI.esc(me.name) + ' · ' + UI.esc(me.phone) + '</p>' +
+        '<div class="note">当前工作区：' + UI.esc(ROLE_NAME[s.type] || s.type) + '</div>' +
+        '<button class="btn pri block" type="button" id="continueBtn" style="margin-top:12px">继续进入</button>' +
+        '<button class="btn block" type="button" id="switchBtn" style="margin-top:8px">切换账号</button>';
+      document.getElementById('continueBtn').addEventListener('click', function () {
+        location.href = safeNext(s.type, next) || pageOf(s.type);
+      });
+      document.getElementById('switchBtn').addEventListener('click', function () {
+        try { Store.logout(); } catch (e) { /* ignore */ }
+        renderLogin();
+      });
+      return;
+    }
+
+    card.innerHTML =
+      '<h2>登录马儿快跑</h2>' +
+      '<p class="small muted">手机号 + 密码。调度、商家、骑手、客户都从这里进，没有免登链接。</p>' +
+      '<form id="loginForm">' +
+      '<div class="field"><label class="fl" for="phone">手机号</label>' +
+      '<input class="input" id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="username" placeholder="11 位手机号"></div>' +
+      '<div class="field"><label class="fl" for="pwd">密码</label>' +
+      '<input class="input" id="pwd" name="pwd" type="password" autocomplete="current-password" placeholder="登录密码"></div>' +
+      '<button class="btn pri block" type="submit" id="loginBtn">登录</button>' +
+      '</form>' +
+      '<div class="divider"></div>' +
+      '<div class="row"><b class="small">演示账号</b><span class="right small muted">点一下直接登录</span></div>' +
+      '<div class="demo-list">' + DEMOS.map(function (d) {
+        return '<button type="button" class="demo-item" data-phone="' + d.phone + '" data-pwd="' + d.pwd +
+          '" style="width:100%;text-align:left;color:var(--ink)">' +
+          '<b>' + UI.esc(d.name) + '</b>' +
+          '<span class="meta num nowrap">' + d.phone + '</span>' +
+          '<span class="badge ' + d.color + '">' + UI.esc(d.tag) + '</span>' +
+          '</button>';
+      }).join('') + '</div>' +
+      '<p class="hint">演示数据只存在本机浏览器；账号停用或改密请到「用户及权限」。</p>';
+
+    document.getElementById('loginForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      doLogin(document.getElementById('phone').value, document.getElementById('pwd').value);
+    });
+    Array.prototype.forEach.call(card.querySelectorAll('.demo-item'), function (el) {
+      el.addEventListener('click', function () {
+        var phone = el.getAttribute('data-phone');
+        var pwd = el.getAttribute('data-pwd');
+        document.getElementById('phone').value = phone;
+        document.getElementById('pwd').value = pwd;
+        doLogin(phone, pwd);
+      });
+    });
+  }
+
+  function doLogin(phone, pwd) {
+    var phoneV = String(phone || '').trim();
+    var pwdV = String(pwd || '');
+    if (!phoneV || !pwdV) { UI.toast('手机号和密码都要填', 'err'); return; }
+
+    var u = null;
+    try {
+      u = Store.users().filter(function (x) { return x.phone === phoneV; })[0] || null;
+    } catch (e) { u = null; }
+    if (!u) { UI.toast('手机号或密码不对', 'err'); return; }
+    if (u.status !== 'active') { UI.toast('这个账号已被停用，请联系管理员', 'err'); return; }
+    if (!u.password) { UI.toast('该账号还未设置密码，请联系管理员', 'err'); return; }
+
+    try {
+      var me = Store.login(phoneV, pwdV);
+      var ws = Store.workspacesOf(me);
+      if (!ws.length) { UI.toast('这个账号还没有分配工作区，请联系管理员', 'err'); return; }
+      if (ws.length === 1) { enter(me, ws[0]); return; }
+      renderWorkspaces(me, ws);
+    } catch (e) {
+      UI.toast(e && e.message ? e.message : '登录失败，请稍后重试', 'err');
+    }
+  }
+
+  function enter(me, ws) {
+    try {
+      Store.setSession(me.id, ws);
+      location.href = safeNext(ws.type, next) || pageOf(ws.type);
+    } catch (e) {
+      UI.toast(e && e.message ? e.message : '进入工作区失败，请重试', 'err');
+    }
+  }
+
+  function renderWorkspaces(me, ws) {
+    card.innerHTML =
+      '<h2>选择工作区</h2>' +
+      '<p class="small muted">' + UI.esc(me.name) + ' 有 ' + ws.length + ' 个工作区，选一个进入。</p>' +
+      '<div class="workspace-grid">' + ws.map(function (w, i) {
+        return '<button type="button" class="workspace-card" data-i="' + i + '">' +
+          '<b>' + UI.esc(w.name) + '</b>' +
+          '<span>' + UI.esc(w.desc) + '</span>' +
+          '</button>';
+      }).join('') + '</div>' +
+      '<button class="btn block" type="button" id="backLogin" style="margin-top:12px">换个账号</button>';
+
+    Array.prototype.forEach.call(card.querySelectorAll('.workspace-card'), function (el) {
+      el.addEventListener('click', function () {
+        enter(me, ws[Number(el.getAttribute('data-i'))]);
+      });
+    });
+    document.getElementById('backLogin').addEventListener('click', function () {
+      try { Store.logout(); } catch (e) { /* ignore */ }
+      renderLogin();
+    });
+  }
+
+  renderLogin();
+})();
+</script>
+</body>
+</html>
