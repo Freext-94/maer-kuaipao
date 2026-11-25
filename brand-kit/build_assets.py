@@ -7,7 +7,7 @@
     python build_assets.py
 
 输入：
-    ../logo.png        完整 logo 原图（透明底，建议 >= 1024x1024）
+    source/logo.png    完整 logo 原图（透明底，建议 >= 1024x1024）
 
 输出：
     png/               全部素材（固定文件名，上线后同名替换即可）
@@ -22,7 +22,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, '..', 'logo.png')
+SRC = os.path.join(HERE, 'source', 'logo.png')
 OUT = os.path.join(HERE, 'png')
 
 # ---------- 品牌色 ----------
