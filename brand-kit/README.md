@@ -1,6 +1,8 @@
 # 品牌资源
 
-马儿快跑品牌资源包含标志、应用图标、网页横幅、分享封面和业务图标。网页运行时使用的图片位于 `frontend/public/brand/` 与 `frontend/public/brand-kit/`；`png/`、`svg/` 目录保存导出的源资源。
+马儿快跑品牌资源包含标志、应用图标、网页横幅、分享封面和业务图标。品牌源图只有一份，位于 `brand-kit/source/logo.png`。替换源图后运行 `python brand-kit/build_assets.py` 可重新生成 `png/` 下的素材。
+
+网页运行时使用的图片位于 `frontend/public/brand/` 与 `frontend/public/brand-kit/`；`png/`、`svg/` 目录保存导出的源资源。
 
 ![马儿快跑品牌分享图](../frontend/public/brand-kit/og-cover-1200x630.png)
 
