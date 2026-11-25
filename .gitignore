@@ -14,7 +14,7 @@ frontend/dist/
 # 日志与临时
 *.log
 *.tmp
-C:\Users\Fengx\AppData\Local\Temp\opencode/
+opencode/
 
 # IDE / agent 工具产物
 .idea/
@@ -29,3 +29,10 @@ Thumbs.db
 
 # Office 临时锁文件
 ~$*
+
+# 本机测试与反馈文件（不随公开版本发布）
+/启动测试环境.bat
+/停止测试环境.bat
+/测试问题与优化反馈模板.xlsx
+/logo.png
+/logo - 副本.png
