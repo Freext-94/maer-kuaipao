@@ -15,3 +15,14 @@ paotui-test-report
 *.log
 *.tmp
 ~$*
+
+*.md
+*.bat
+*.xlsx
+logo*.png
+prototype/
+prototype-v2/
+specs/
+docs/
+brand-kit/
+database/
