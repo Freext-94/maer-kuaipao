@@ -6,7 +6,7 @@
 
 **面向单城市跑腿团队的订单调度与经营管理平台**
 
-[![Release](https://img.shields.io/github/v/release/Freext-94/maer-kuaipao?display_name=tag)](https://github.com/Freext-94/maer-kuaipao/releases)
+[![Version](https://img.shields.io/github/v/tag/Freext-94/maer-kuaipao?label=version)](https://github.com/Freext-94/maer-kuaipao/tree/v1.0.0)
 [![Publish images](https://github.com/Freext-94/maer-kuaipao/actions/workflows/publish-images.yml/badge.svg)](https://github.com/Freext-94/maer-kuaipao/actions/workflows/publish-images.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -91,7 +91,7 @@ docker compose ps
    npm run dev
    ```
 
-MySQL 首次启动时由 Flyway 自动建表。开发接口与数据库设计见[架构说明](docs/design.md)和[API 概览](docs/api.md)。
+MySQL 首次启动时由 Flyway 自动建表。接口与数据库设计见[架构说明](docs/design.md)和[API 概览](docs/api.md)。
 
 ## 技术栈
 
