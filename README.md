@@ -1,121 +1,124 @@
-# 马儿快跑 · Track A 线上工具
+<div align="center">
 
-> **2026-11-21 改造方案阶段**：品牌「马儿快跑」；不做账期/信用额度/月结，不做免登，全员手机号+密码；移动端优先，账单生成图片不生成 PDF。
-> 改造计划：`docs/需求与改造计划.md`　｜　第二轮 11 条方案：`docs/改造方案-第二轮问题.md`　｜　品牌素材：`brand-kit/`
-> 旧原型 `prototype-v2/index.html` 只作流程参考，视觉/交互按新方案和 brand-kit 重做。生产代码尚未按新计划修改。
+<img src="frontend/public/brand-kit/app-icon-512.png" alt="马儿快跑" width="128" />
 
-自营同城跑腿服务商的内部经营系统：**在线/电话录单 → 派单 → 取货垫付 → 派送 → 配送完成挂账与收款 → 客户账单/资金流水**。
+# 马儿快跑
 
-Track A 的含义是**不依赖任何微信资质**：不办个体工商户、不开微信支付、不做小程序、不发短信。四端均为手机号+密码登录；客户自助下单使用登录态 H5，不再提供免登链接。收款线下完成、系统只记账，将来办了个体户可在同一套后端上加微信登录与在线收款（Track B）。
+**面向单城市跑腿团队的订单调度与经营管理平台**
 
-## 现在能做什么
+[![Release](https://img.shields.io/github/v/release/Freext-94/maer-kuaipao?display_name=tag)](https://github.com/Freext-94/maer-kuaipao/releases)
+[![Publish images](https://github.com/Freext-94/maer-kuaipao/actions/workflows/publish-images.yml/badge.svg)](https://github.com/Freext-94/maer-kuaipao/actions/workflows/publish-images.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-| 端 | 入口 | 用途 |
-|---|---|---|
-| 调度台（PC） | `/#/login` → `/#/admin` | 电话录单、看板派单、取货/配送完成、取消与垫付追回、货款调整；收款/欠款/减免在账单页 |
-| 商家端（手机） | `/#/login` → `/#/m` | 只读工作台：每 12 秒拉单、新单响铃 + 高亮、查看历史；不再代客下单或确认备货 |
-| 骑手端（手机） | `/#/login` → `/#/r` | 我的任务、取货时录实际垫付并拍小票、配送完成时收款确认 |
-| 客户端（手机） | `/#/login` → `/#/c` | 自助下单、看自己的单、看客户账单、主动还款登记 |
+简体中文
 
-## 快速开始（开发机）
+</div>
 
-需要 JDK 17、Maven 3.9、MySQL 8。国内网络下 `repo.maven.apache.org` 直连不通，用带镜像的配置：
+![马儿快跑移动端品牌横幅](frontend/public/brand-kit/mobile-banner-1500x600.png)
 
-```bash
-# 1) 建库建号
-mysql -uroot -p -e "CREATE DATABASE paotui DEFAULT CHARACTER SET utf8mb4;
-CREATE USER 'paotui'@'%' IDENTIFIED BY 'paotui'; GRANT ALL ON paotui.* TO 'paotui'@'%';"
-# MySQL 开了 binlog 时，建触发器需要这个开关（详见 docker/my.cnf）
-mysql -uroot -p -e "SET GLOBAL log_bin_trust_function_creators = ON;"
+马儿快跑把客户、商家、骑手和调度人员连接在同一套订单流程里。平台支持线上建单和电话代录、管理员人工派单、骑手履约、商家查看订单，以及订单账单和线下收款记录。适合小型自营跑腿团队在手机和电脑上协同日常业务。
 
-# 2) 配置初始管理员密码，再启动后端（首次启动自动执行 Flyway 建表）
-export PAOTUI_ADMIN_PASSWORD='换成你自己的强密码'
-cd backend && mvn -s ../.tools/settings.xml spring-boot:run
+## 产品功能
 
-# 3) 前端
-cd frontend && npm install && npm run dev     # http://localhost:5173
+| 工作台 | 功能 |
+|---|---|
+| 调度管理 | 统一查看订单，电话代录，人工指派骑手，改单留痕，维护客户、商家、骑手、账号、权限和服务配置 |
+| 客户 | 手机下单，查看订单进度与月度账单，登记还款；客户账号由管理员创建 |
+| 骑手 | 查看本人任务，登记取货实付，送达时记录收款或欠款，查看历史订单与经手账单 |
+| 商家 | 查看关联订单和历史记录；备货与商品结算在线下完成 |
+
+系统预置代买、代取送、代办、代驾等服务类型，管理员可以在设置中启用或配置服务项目。订单主要经过以下流程：
+
+```mermaid
+flowchart LR
+    A[客户线上下单或电话下单] --> B[调度人员核对订单]
+    B --> C[管理员人工派给骑手]
+    C --> D[取货中]
+    D --> E[派送中]
+    E --> F[已完成]
+    F --> G[记录线下收款或客户欠款]
+    H[商家查看订单与历史] -.订单关联.-> C
 ```
 
-跑测试（需要能连到 `127.0.0.1:3307` 的 MySQL 与 `paotui_test` 库）：
+订单状态：**待派单 → 取货中 → 派送中 → 已完成**。未完成订单可取消；改单记录会保留修改内容。客户在线下付款，或由管理员登记收款与欠款，系统不处理在线支付。
+
+## 产品图片
+
+![马儿快跑分享封面](frontend/public/brand-kit/og-cover-1200x630.png)
+
+## 快速体验
+
+马儿快跑提供浏览器版工作台，并通过 Docker Compose 部署到 NAS 或 Linux 主机。公开版不附带生产账号或预置客户数据；首次启动时从部署环境读取管理员手机号和密码。
+
+### NAS / Linux 部署
+
+准备 Docker Engine 与 Docker Compose 插件，在服务器上执行：
 
 ```bash
-cd backend && mvn -s ../.tools/settings.xml test
+git clone https://github.com/Freext-94/maer-kuaipao.git
+cd maer-kuaipao/docker
+cp .env.example .env
 ```
 
-想先点几单试试，可导入演示数据。**顺序不能颠倒**：表是应用第一次启动时由 Flyway 建的、初始账号也是那时建的，所以要先把应用跑起来，再导数据。
+编辑 `docker/.env`，为 MySQL、应用数据库和初始管理员分别设置独立强密码，然后拉取并启动服务：
 
 ```bash
-# 1) 先启动一次后端（建表 + 建初始账号），确认可登录后停下
-cd backend && mvn -s ../.tools/settings.xml spring-boot:run
-
-# 2) 导入演示数据（ID 占 900+ 段，不会撞主键）
-mysql -upaotui -p paotui < database/demo-data.sql
-
-# 3) 重算核销：演示流水是直接 INSERT 的，而核销关系是派生数据
-curl -X POST localhost:8080/api/admin/ledger/rebuild -H "X-Auth-Token: <登录后的 token>"
-```
-
-上线前用不着它就按 `database/demo-data.sql` 末尾那段注释删干净（注意台账有禁止 DELETE 的触发器，得先拆后装）。
-
-`t_ledger_entry.type` 只能写枚举名大写（`CHARGE` / `PAYMENT` / `ADJUST` / `WAIVE` / `REFUND`）。MySQL 查询大小写不敏感、Java 判断敏感，写错会把一笔收款当成挂账——所以应用遇到非法值会直接报错而不是猜。
-
-## NAS / 云主机部署
-
-```bash
-cd docker
-cp .env.example .env      # 设置强密码、公开镜像地址和对外端口
 docker compose pull
 docker compose up -d
 docker compose ps
 ```
 
-发布仓库推送 `v1.0.0` 标签后，GitHub Actions 会构建并推送 `backend`、`web` 两个多架构镜像到 GHCR。首次发布后需在 GitHub Packages 将两个容器包设为 Public，NAS 才能匿名拉取。
+默认访问地址为 `http://服务器地址:8088`。第一次启动会自动创建数据库结构和初始管理员。建议在反向代理上配置 HTTPS，并定期备份数据库与订单凭证文件。完整说明见[部署指南](docs/deployment.md)。
 
-对外只暴露 `PAOTUI_HTTP_PORT`（默认 8088）一个端口；MySQL 和后端都只在内网。
+> GitHub Actions 为 Linux amd64 与 arm64 构建镜像。首次构建完成后，将 GitHub Packages 中的两个容器包设为公开，NAS 即可直接拉取。
 
-**先内网用，别急着对外。** 家用宽带通常封 80/443，而且 ICP 备案要求"接入商"与你实际对外的线路一致——家庭宽带线路无法备案，用个人备案的域名在家庭宽带上对外提供经营性服务，备案号有被核查注销的风险。等迁到云服务器（备案接入商=云厂商）后再对外发链接更稳妥。过渡期给商家/骑手发链接，可以用局域网或 VPN 组网。
+## 本地运行
 
-HTTPS 是手机浏览器的现实要求（拍照、通知等能力在非 HTTPS 下会受限），NAS 上用反向代理签发的证书即可。
+需要 JDK 17、Maven 3.9、MySQL 8、Node.js 20 或更新版本。
 
-### 备份
+1. 创建 `paotui` 数据库，并为应用创建具备数据库读写与 Flyway 迁移权限的账号。
+2. 设置数据库连接与初始管理员密码环境变量：`PAOTUI_DB_HOST`、`PAOTUI_DB_PORT`、`PAOTUI_DB_NAME`、`PAOTUI_DB_USER`、`PAOTUI_DB_PASSWORD`、`PAOTUI_ADMIN_PHONE`、`PAOTUI_ADMIN_PASSWORD`。
+3. 从 `backend/` 启动 Spring Boot：
 
-```bash
-cd docker && ./backup.sh      # 丢进 NAS 计划任务，每天一次
-```
+   ```bash
+   mvn spring-boot:run
+   ```
 
-产出 `docker/backups/paotui-<时间>.sql.gz` 与 `uploads-<时间>.tgz`（小票/送达照），保留 14 天。恢复：
+4. 从 `frontend/` 安装依赖并启动网页：
 
-```bash
-gunzip -c backups/paotui-XXX.sql.gz | docker compose exec -T mysql mysql -upaotui -p paotui
-docker compose cp backups/uploads-XXX/uploads-XXX backend:/data/uploads
-```
+   ```bash
+   npm ci
+   npm run dev
+   ```
 
-## 上线后第一件事
+MySQL 首次启动时由 Flyway 自动建表。开发接口与数据库设计见[架构说明](docs/design.md)和[API 概览](docs/api.md)。
 
-1. 使用部署时配置的 `PAOTUI_ADMIN_PHONE` 和 `PAOTUI_ADMIN_PASSWORD` 登录调度台。
-2. 在「设置 → 服务类型」按实际业务启用需要的类型（代买/代取送/代办/接送/代驾），停用的类型不会出现在下单页。
-3. 建商家、骑手、客户账号，四端均用手机号+密码登录。
-4. 给客户补收货地址，客户即可自助下单；调度台/骑手也可代客录单。
-5. 收款、减免、还款申报核对统一在「账单」页完成，订单页只管订单行为。
+## 技术栈
 
-## 三条不能妥协的规则
+| 部分 | 技术 |
+|---|---|
+| Web 前端 | Vue 3、Vite、Vue Router |
+| 服务端 | Java 17、Spring Boot、MyBatis-Plus、Sa-Token |
+| 数据库 | MySQL 8、Flyway |
+| 部署 | Docker Compose、Nginx |
 
-系统的钱账部分刻意做"硬"，改代码前先看 `docs/design.md`：
+## 项目文档
 
-1. **取货时录下的实付货款不可修改**。有争议只能新增一条"冲正"流水，原值和小票永久保留。
-2. **客户欠款余额 = 流水之和**，没有余额字段可改。数据库上对 `t_ledger_entry` 加了禁止 UPDATE/DELETE 的触发器，绕过应用直接改表也会被拒。
-3. **垫付没交代的单进不了终态**：已付给商家的钱，必须先记「已追回」或勾「确认损失」。
+- [部署与运维](docs/deployment.md)
+- [架构与业务流程](docs/design.md)
+- [API 概览](docs/api.md)
+- [品牌素材与视觉规范](brand-kit/brand-guide.md)
+- [版本记录](RELEASE.md)
+- [参与贡献](CONTRIBUTING.md)
 
-## 明确没做（以及为什么）
+## 产品边界
 
-- **在线收款/自动扣款**：需要商户号；且微信支付分先享后付、委托代扣是邀约制，小平台拿不到。现实做法就是客户扫收款码 + 回系统登记一笔还款。
-- **微信订阅消息、短信、语音外呼**：订阅消息一次授权只换一条额度、长期订阅商业类目拿不到；短信签名需企业/个体户资质报备。所以商家提醒走"常驻页 + 提示音 + 电话"。
-- **地图距离计费、智能派单、抢单大厅、多租户 SaaS、OCR**：1-3 人自送、日均 <50 单的规模用不上，加了只会拖慢运营。
-- 原型阶段留的验收问题（一单要录 10-13 项是否太多）仍然有效，见 `prototype/index.html`。
+马儿快跑是单机构、单城市的自营业务平台。当前版本不含在线支付、短信或地图派单；商家备货和骑手结算按线下流程处理。客户、商家、骑手和管理员通过手机号与密码登录，暂不支持免登录下单链接。
 
-## 文档
+## 参与贡献
 
-- `docs/design.md` 架构、状态机、台账不变式、鉴权与通知设计
-- `docs/api.md` 接口清单
-- `PROJECT.md` 目录结构、约定、给后续 AI 改代码时的边界说明
-- `prototype/` 已评审通过的可点原型（纯静态，双击 `index.html` 即可），是交互与视觉的对照基准
+欢迎提交问题反馈、功能建议和代码贡献。请先阅读[贡献指南](CONTRIBUTING.md)，提交问题时尽量提供复现步骤、预期结果和实际结果。
+
+## 许可证
+
+本项目以 [MIT License](LICENSE) 发布。
